@@ -14,6 +14,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from core.browser_utils import proxy_check_strategy, get_sync_playwright, find_chrome_executable, save_cookies
 from parsers.ozon.extractors import detect_access_denied, parse_prices_from_text
 from parsers.ozon.parser_core import CaptchaSolverManager, ParserCore, StealthManager
+from parsers.wb.extractors import detect_access_denied_wb
 from core.utils import now_str, time_str, stamp_for_filename
 
 
@@ -87,9 +88,10 @@ def cleanup_stale_profiles(base_dir: Path, all_proxy_servers: list[str]) -> int:
 
 class ProxyChecker:
     def __init__(self, *, base_dir: Path, config: dict, log: Callable[[str, str], None],
-                 stop_requested: Callable[[], bool] | None = None):
+                 stop_requested: Callable[[], bool] | None = None, target: str = 'ozon'):
         self.base_dir = base_dir
         self.config = config
+        self.target = target  # 'ozon' or 'wb'
         self._original_log = log
         self._stop_requested = stop_requested or (lambda: False)
         self._log_file_path: Path | None = None
@@ -637,106 +639,11 @@ class ProxyChecker:
                 try:
                     page = context.new_page()
                     stealth.apply(page)
-                    page.goto('https://www.ozon.ru', wait_until='domcontentloaded', timeout=30000)
-                    page.wait_for_timeout(2000)
-                    self._dismiss_cookie_consent(page, label)
-                    self._log_page_state(page, label, 'Главная страница загружена')
 
-                    antibot_was_seen = self._detect_antibot_challenge(page)
-                    if antibot_was_seen:
-                        self._log('WARNING', f'[{label}] Antibot Challenge — ждём JS-проверки (до 15 сек)...')
-                        for _ in range(15):
-                            page.wait_for_timeout(1000)
-                            if not self._detect_antibot_challenge(page):
-                                break
-                        self._dismiss_cookie_consent(page, label)
-                        self._log_page_state(page, label, 'После Antibot Challenge')
-
-                    if self._detect_vpn_blocked(page):
-                        self._log_page_state(page, label, 'VPN-блок обнаружен')
-                        cleared = self._try_refresh_vpn_page(page, label)
-                        if not cleared:
-                            self._log('WARNING', f'[{label}] VPN-блок остался после обновления')
-                            self._log_page_state(page, label, 'После обновления VPN-блок не снят')
-                            if not antibot_was_seen:
-                                self._log('WARNING', f'[{label}] Прямой IP-бан — Antibot Challenge не было, ретраи бесполезны')
-                                result.status = 'ip_ban'
-                            else:
-                                result.status = 'vpn_blocked'
-                            return result
-                        page.wait_for_timeout(3000)
-                        self._dismiss_cookie_consent(page, label)
-                        self._log_page_state(page, label, 'VPN-блок снят, ждём дозагрузки главной')
-
-                    if self._is_turnstile_present(page):
-                        self._log('WARNING', f'[{label}] Обнаружена капча при проверке прокси, пытаемся решить...')
-                        token = captcha_solver.solve_turnstile(page, 'https://www.ozon.ru')
-                        if token:
-                            self._log('INFO', f'[{label}] Капча решена, перезагружаем страницу...')
-                            page.wait_for_timeout(2000)
-                            page.goto('https://www.ozon.ru', wait_until='domcontentloaded', timeout=30000)
-                            page.wait_for_timeout(2000)
-                            self._log_page_state(page, label, 'После решения капчи')
-                        else:
-                            self._log('WARNING', f'[{label}] Не удалось решить капчу автоматически')
-
-                    body_text = page.locator('body').inner_text(timeout=5000)
-                    if detect_access_denied(body_text)[0]:
-                        self._log_page_state(page, label, 'Access denied на главной')
-                        result.status = 'access_denied'
-                        return result
-
-                    product_urls = self._get_product_urls_with_retry(page, label, attempts=3, wait_ms=2000)
-                    if not product_urls:
-                        if self._detect_vpn_blocked(page):
-                            self._log_page_state(page, label, 'VPN-блок обнаружен повторно (JS-рендер)')
-                            cleared = self._try_refresh_vpn_page(page, label)
-                            result.status = 'no_product_links' if cleared else 'vpn_blocked'
-                        elif self._detect_antibot_challenge(page):
-                            self._log_page_state(page, label, 'Antibot Challenge после ожидания — прокси заблокирована')
-                            result.status = 'antibot_blocked'
-                        else:
-                            self._log_page_state(page, label, 'Товары не найдены на главной странице')
-                            result.status = 'no_product_links'
-                        return result
-
-                    self._log('INFO', f'[{label}] Найдено ссылок на товары: {len(product_urls)}, проверяем...')
-                    ok_count = 0
-                    for prod_url in product_urls[:2]:
-                        self._log('INFO', f'[{label}] Проверяем товар: {prod_url}')
-                        card_result = self._check_product_page(page, prod_url, label, captcha_solver)
-                        self._log('INFO', f'[{label}] Результат карточки: {card_result["status"]}')
-                        if card_result['status'] == 'ok':
-                            ok_count += 1
-                        elif card_result['status'] in ('access_denied', 'timeout', 'vpn_blocked'):
-                            result.status = card_result['status']
-                            return result
-                        elif card_result['status'] == 'region_unavailable':
-                            self._log('WARNING', f'[{label}] Товар не доставляется в регион прокси — прокси рабочая')
-                            ok_count += 1
-                        elif card_result['status'] == 'product_page_blocked':
-                            self._log('WARNING', f'[{label}] Карточка товара заблокирована, но главная открылась')
-                            ok_count += 1
-                        elif card_result['status'] == 'slider_captcha':
-                            self._log('WARNING', f'[{label}] Slider-капча на карточке — прокси невалидна для парсинга')
-                            result.status = 'captcha_required'
-                            return result
-                    if ok_count >= 1:
-                        result.status = 'ok'
-                        result.strategy = antidetect_cfg.get('strategy', '')
-                        profile = _proxy_profile_name(proxy)
-                        save_cookies(context, self.base_dir, profile, log=self._log)
-                        profile_dir = self.base_dir / 'profiles' / profile
-                        profile_dir.mkdir(parents=True, exist_ok=True)
-                        try:
-                            (profile_dir / 'strategy.json').write_text(
-                                json.dumps({'strategy': result.strategy}),
-                                encoding='utf-8',
-                            )
-                        except Exception:
-                            pass
+                    if self.target == 'wb':
+                        result = self._check_wb(page, proxy, label, result, antidetect_cfg, context)
                     else:
-                        result.status = 'missing_required_fields'
+                        result = self._check_ozon(page, proxy, label, result, antidetect_cfg, context, captcha_solver)
                     return result
                 finally:
                     if headed and page is not None and result.status != 'ok':
@@ -757,6 +664,158 @@ class ProxyChecker:
             else:
                 result.status = f'{type(e).__name__}' if not err_msg else f'{type(e).__name__}: {err_msg[:120]}'
                 self._log('ERROR', f'[{label}] Необработанное исключение: {type(e).__name__}: {e}')
+        return result
+
+    def _check_ozon(self, page, proxy, label, result, antidetect_cfg, context, captcha_solver) -> ProxyTestResult:
+        page.goto('https://www.ozon.ru', wait_until='domcontentloaded', timeout=30000)
+        page.wait_for_timeout(2000)
+        self._dismiss_cookie_consent(page, label)
+        self._log_page_state(page, label, 'Главная страница загружена')
+
+        antibot_was_seen = self._detect_antibot_challenge(page)
+        if antibot_was_seen:
+            self._log('WARNING', f'[{label}] Antibot Challenge — ждём JS-проверки (до 15 сек)...')
+            for _ in range(15):
+                page.wait_for_timeout(1000)
+                if not self._detect_antibot_challenge(page):
+                    break
+            self._dismiss_cookie_consent(page, label)
+            self._log_page_state(page, label, 'После Antibot Challenge')
+
+        if self._detect_vpn_blocked(page):
+            self._log_page_state(page, label, 'VPN-блок обнаружен')
+            cleared = self._try_refresh_vpn_page(page, label)
+            if not cleared:
+                self._log('WARNING', f'[{label}] VPN-блок остался после обновления')
+                result.status = 'ip_ban' if not antibot_was_seen else 'vpn_blocked'
+                return result
+            page.wait_for_timeout(3000)
+            self._dismiss_cookie_consent(page, label)
+            self._log_page_state(page, label, 'VPN-блок снят, ждём дозагрузки главной')
+
+        if self._is_turnstile_present(page):
+            self._log('WARNING', f'[{label}] Обнаружена капча при проверке прокси, пытаемся решить...')
+            token = captcha_solver.solve_turnstile(page, 'https://www.ozon.ru')
+            if token:
+                self._log('INFO', f'[{label}] Капча решена, перезагружаем страницу...')
+                page.wait_for_timeout(2000)
+                page.goto('https://www.ozon.ru', wait_until='domcontentloaded', timeout=30000)
+                page.wait_for_timeout(2000)
+                self._log_page_state(page, label, 'После решения капчи')
+            else:
+                self._log('WARNING', f'[{label}] Не удалось решить капчу автоматически')
+
+        body_text = page.locator('body').inner_text(timeout=5000)
+        if detect_access_denied(body_text)[0]:
+            self._log_page_state(page, label, 'Access denied на главной')
+            result.status = 'access_denied'
+            return result
+
+        product_urls = self._get_product_urls_with_retry(page, label, attempts=3, wait_ms=2000)
+        if not product_urls:
+            if self._detect_vpn_blocked(page):
+                self._log_page_state(page, label, 'VPN-блок обнаружен повторно (JS-рендер)')
+                cleared = self._try_refresh_vpn_page(page, label)
+                result.status = 'no_product_links' if cleared else 'vpn_blocked'
+            elif self._detect_antibot_challenge(page):
+                self._log_page_state(page, label, 'Antibot Challenge после ожидания — прокси заблокирована')
+                result.status = 'antibot_blocked'
+            else:
+                self._log_page_state(page, label, 'Товары не найдены на главной странице')
+                result.status = 'no_product_links'
+            return result
+
+        self._log('INFO', f'[{label}] Найдено ссылок на товары: {len(product_urls)}, проверяем...')
+        ok_count = 0
+        for prod_url in product_urls[:2]:
+            self._log('INFO', f'[{label}] Проверяем товар: {prod_url}')
+            card_result = self._check_product_page(page, prod_url, label, captcha_solver)
+            self._log('INFO', f'[{label}] Результат карточки: {card_result["status"]}')
+            if card_result['status'] == 'ok':
+                ok_count += 1
+            elif card_result['status'] in ('access_denied', 'timeout', 'vpn_blocked'):
+                result.status = card_result['status']
+                return result
+            elif card_result['status'] in ('region_unavailable', 'product_page_blocked'):
+                ok_count += 1
+            elif card_result['status'] == 'slider_captcha':
+                self._log('WARNING', f'[{label}] Slider-капча на карточке — прокси невалидна для парсинга')
+                result.status = 'captcha_required'
+                return result
+
+        if ok_count >= 1:
+            result.status = 'ok'
+            result.strategy = antidetect_cfg.get('strategy', '')
+            profile = _proxy_profile_name(proxy)
+            save_cookies(context, self.base_dir, profile, log=self._log)
+            profile_dir = self.base_dir / 'profiles' / profile
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                (profile_dir / 'strategy.json').write_text(
+                    json.dumps({'strategy': result.strategy}), encoding='utf-8')
+            except Exception:
+                pass
+        else:
+            result.status = 'missing_required_fields'
+        return result
+
+    def _check_wb(self, page, proxy, label, result, antidetect_cfg, context) -> ProxyTestResult:
+        page.goto('https://www.wildberries.ru', wait_until='domcontentloaded', timeout=30000)
+        page.wait_for_timeout(2000)
+        self._dismiss_cookie_consent(page, label)
+        self._log_page_state(page, label, 'Главная WB загружена')
+
+        body_text = page.locator('body').inner_text(timeout=5000)
+        is_denied, _ = detect_access_denied_wb(body_text)
+        if is_denied:
+            self._log_page_state(page, label, 'Access denied на главной WB')
+            result.status = 'access_denied'
+            return result
+
+        # Ищем ссылки на карточки товаров WB (/catalog/)
+        try:
+            urls = page.evaluate("""
+                () => {
+                    const links = Array.from(document.querySelectorAll('a[href*="/catalog/"]'));
+                    return [...new Set(links.map(a => a.href).filter(h => /\\/catalog\\/\\d+/.test(h)))];
+                }
+            """)
+            random.shuffle(urls)
+            product_urls = urls[:2]
+        except Exception:
+            product_urls = []
+
+        if not product_urls:
+            self._log_page_state(page, label, 'Товары WB не найдены на главной')
+            result.status = 'no_product_links'
+            return result
+
+        self._log('INFO', f'[{label}] Найдено ссылок WB: {len(product_urls)}, проверяем...')
+        for prod_url in product_urls[:1]:
+            self._log('INFO', f'[{label}] Проверяем товар WB: {prod_url}')
+            try:
+                page.goto(prod_url, wait_until='domcontentloaded', timeout=35000)
+                page.wait_for_timeout(1500)
+                card_text = page.locator('body').inner_text(timeout=5000)
+                is_denied, _ = detect_access_denied_wb(card_text)
+                if is_denied:
+                    result.status = 'access_denied'
+                    return result
+            except PlaywrightTimeoutError:
+                result.status = 'timeout'
+                return result
+
+        result.status = 'ok'
+        result.strategy = antidetect_cfg.get('strategy', '')
+        profile = _proxy_profile_name(proxy)
+        save_cookies(context, self.base_dir, profile, log=self._log)
+        profile_dir = self.base_dir / 'profiles' / profile
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            (profile_dir / 'strategy.json').write_text(
+                json.dumps({'strategy': result.strategy}), encoding='utf-8')
+        except Exception:
+            pass
         return result
 
     def check_one_proxy(self, parser: ParserCore, proxy: dict, label: str, masked_line: str) -> ProxyTestResult:

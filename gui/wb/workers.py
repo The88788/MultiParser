@@ -134,6 +134,7 @@ class ProxyTestWorker(QThread):
             config=self.config,
             log=self._log,
             stop_requested=self._should_stop,
+            target='wb',
         )
         checker.run()
         self.valid_proxy_lines = checker.valid_proxy_lines
