@@ -45,7 +45,7 @@ class TelegramNotifier:
         """Возвращает (ok, msg, retry_after_seconds)."""
         import requests
         url = f'https://api.telegram.org/bot{self.token}/sendMessage'
-        proxies = {'https': proxy, 'http': proxy} if proxy else None
+        proxies = {'https': proxy, 'http': proxy} if proxy else {}
         payload: dict = {'chat_id': self.chat_id, 'text': text, 'parse_mode': 'HTML'}
         if self.thread_id is not None:
             payload['message_thread_id'] = self.thread_id
