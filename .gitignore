@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+
+# PyInstaller artifacts
+build/
+dist/
+*.spec
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+
+# Runtime output
+logs/
+output/
+
+# Sensitive
+cookies_wb.json

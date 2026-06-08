@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "88788 WB Parser",
+    "developer": "VLK"
+  },
+  "parser": {
+    "headed": true,
+    "captcha_timeout_sec": 295,
+    "retry_count": 1,
+    "pause_min": 1.1,
+    "pause_max": 4.1,
+    "timeout_ms": 30014,
+    "max_access_denied_streak": 1,
+    "snapshot_mode": true,
+    "parse_size_variants": true,
+    "parse_color_variants": true,
+    "multi_parsing_enabled": false,
+    "threads_count": 1,
+    "max_pages_per_run": 0,
+    "wb_spp_percent": 30
+  },
+  "proxy": {
+    "enabled": false,
+    "mode": "file",
+    "use_single_proxy": false,
+    "single_proxy": "",
+    "proxy_file": ""
+  },
+  "antidetect": {
+    "strategy": "chrome",
+    "rotate": true
+  },
+  "captcha": {
+    "twocaptcha_api_key": "",
+    "capsolver_api_key": "",
+    "anticaptcha_api_key": "",
+    "primary_service": "Anti-Captcha",
+    "fallback_service": "2Captcha",
+    "timeout": 123
+  },
+  "source": {
+    "path": ""
+  },
+  "debug_log": false,
+  "cron": {
+    "enabled": false,
+    "mode": "interval",
+    "time": "00:00",
+    "weekday": 0,
+    "day_of_month": 1,
+    "interval_days": 0,
+    "interval_hours": 1,
+    "check_proxies_before_run": true,
+    "delete_invalid_proxies": true,
+    "proxy_low_threshold": 5,
+    "skip_or_wait": "skip",
+    "next_run_iso": null,
+    "last_run_iso": null
+  },
+  "notifications": {
+    "enabled": false,
+    "bot_token": "",
+    "chat_id": "",
+    "thread_id": "",
+    "notify_single_done": true,
+    "notify_multi_done": true,
+    "notify_cron_done": true,
+    "notify_proxy_check_done": true,
+    "notify_error": true,
+    "notify_proxy_low": true,
+    "notify_progress": false,
+    "progress_interval": 100
+  }
+}
