@@ -772,6 +772,12 @@ class ProxyChecker:
             result.status = 'access_denied'
             return result
 
+        # Ждём появления продуктовых ссылок — WB SPA рендерит карточки через JS
+        try:
+            page.wait_for_selector('a[href*="/catalog/"]', timeout=6000)
+        except Exception:
+            pass  # Не нашли за 6 сек — попробуем извлечь что есть
+
         # Ищем ссылки на карточки товаров WB (/catalog/)
         try:
             urls = page.evaluate("""

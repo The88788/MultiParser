@@ -900,7 +900,7 @@ class MainWindow(QMainWindow):
 
     def _get_notifier(self):
         """Возвращает TelegramNotifier если уведомления включены, иначе None."""
-        ntf = self.config.get('notifications', {})
+        ntf = self.notifications_tab.to_dict()
         if not ntf.get('enabled', False):
             return None
         tg_proxy = ntf.get('tg_proxy', '').strip()
@@ -935,10 +935,12 @@ class MainWindow(QMainWindow):
 
     def _get_gui_state_for_cron(self) -> dict:
         """Снимок состояния GUI для CronManager (вызывается из daemon-потока)."""
+        runtime = dict(self.config)
+        runtime['notifications'] = self.notifications_tab.to_dict()
         return {
             'input_text': self.input_edit.toPlainText(),
             'source_path': self.source_input.text().strip(),
-            'runtime_config': dict(self.config),
+            'runtime_config': runtime,
             'input_ids': self._collect_input_ids(),
             'parser_name': 'WB Parser',
         }
