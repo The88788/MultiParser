@@ -25,3 +25,6 @@ cookies_wb.json
 config.json
 config_ozon.json
 config_wb.json
+
+# Файлы прокси (локальные данные)
+proxies/*.txt
