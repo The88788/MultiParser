@@ -156,11 +156,6 @@ class ProxySettingsGroup(QGroupBox):
         self.delete_bad_button.setProperty('compactIconButton', True)
         self.delete_bad_button.setFixedSize(28, 28)
 
-        self.cleanup_profiles_button = QPushButton('Очистить профили')
-        self.cleanup_profiles_button.setToolTip(
-            'Удалить сохранённые профили прокси, которых нет в текущем файле прокси'
-        )
-
         file_row = QWidget()
         file_layout = QHBoxLayout(file_row)
         file_layout.setContentsMargins(0, 0, 0, 0)
@@ -169,7 +164,6 @@ class ProxySettingsGroup(QGroupBox):
         file_layout.addWidget(self.open_file_button)
         file_layout.addWidget(self.check_proxy_button)
         file_layout.addWidget(self.delete_bad_button)
-        file_layout.addWidget(self.cleanup_profiles_button)
         file_layout.addStretch(1)
 
         form.addRow(self.enabled_checkbox)

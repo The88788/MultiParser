@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.cron_manager import CronManager, validate_cron_conditions
+from core.proxy_checker import cleanup_stale_profiles
 from parsers.ozon.parser_core import ParserCore
 from core.utils import save_config, ensure_runtime_dirs
 from core import autostart as _autostart
@@ -353,7 +354,6 @@ class MainWindow(QMainWindow):
         self.stop_button.clicked.connect(self.stop_parsing)
         self.proxy_settings.check_proxy_button.clicked.connect(self.check_proxy)
         self.proxy_settings.delete_bad_button.clicked.connect(self.delete_bad_proxies)
-        self.proxy_settings.cleanup_profiles_button.clicked.connect(self.cleanup_profiles)
         self.open_excel_button.clicked.connect(self.open_excel)
         self.open_output_button.clicked.connect(self.open_output_folder)
         self.proxy_settings.choose_file_button.clicked.connect(self.choose_proxy_file)
@@ -463,7 +463,9 @@ class MainWindow(QMainWindow):
         self._fit_window_to_available_screen()
 
     def choose_proxy_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, 'Выбор файла с прокси', str(self.base_dir), 'Text files (*.txt);;All files (*)')
+        proxies_dir = self.base_dir / 'proxies'
+        proxies_dir.mkdir(exist_ok=True)
+        path, _ = QFileDialog.getOpenFileName(self, 'Выбор файла с прокси', str(proxies_dir), 'Text files (*.txt);;All files (*)')
         if path:
             self.proxy_settings.proxy_file_input.setText(path)
 
@@ -481,7 +483,7 @@ class MainWindow(QMainWindow):
     def save_source_path(self) -> None:
         self.config.setdefault('source', {})
         self.config['source']['path'] = self.source_input.text().strip()
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_ozon.json', self.config)
 
     def append_log(self, level: str, message: str) -> None:
         sb = self.log_edit.verticalScrollBar()
@@ -723,6 +725,11 @@ class MainWindow(QMainWindow):
         else:
             self.append_log('INFO', 'Нерабочие proxy не найдены. Удаление не требуется')
 
+        all_servers = self.last_valid_proxy_lines + self.last_invalid_proxy_lines
+        removed = cleanup_stale_profiles(self.base_dir, all_servers)
+        if removed:
+            self.append_log('INFO', f'Очистка профилей: удалено {removed} устаревших директорий')
+
         ntf = self.config.get('notifications', {})
         notifier = self._get_notifier()
         valid_count = len(self.last_valid_proxy_lines)
@@ -766,79 +773,6 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             tmp_path.unlink(missing_ok=True)
             self.append_log('ERROR', f'Не удалось пересобрать файл proxy: {type(exc).__name__}: {exc}')
-
-    def cleanup_profiles(self) -> None:
-        import shutil
-        from core.proxy_checker import profile_name_from_line
-
-        profiles_dir = self.base_dir / 'profiles'
-        if not profiles_dir.exists():
-            QMessageBox.information(self, 'Очистка профилей', 'Папка profiles не найдена.')
-            return
-
-        existing = {p.name for p in profiles_dir.iterdir() if p.is_dir() and p.name != 'default'}
-        if not existing:
-            QMessageBox.information(self, 'Очистка профилей', 'Нет профилей для удаления.')
-            return
-
-        proxy_cfg = self.proxy_settings.to_dict()
-        proxy_file = proxy_cfg.get('proxy_file', '').strip()
-        single_proxy = proxy_cfg.get('single_proxy', '').strip()
-
-        keep: set[str] = set()
-        source_desc = ''
-
-        if proxy_file:
-            pf = Path(proxy_file)
-            if pf.exists():
-                for line in pf.read_text(encoding='utf-8', errors='ignore').splitlines():
-                    name = profile_name_from_line(line)
-                    if name:
-                        keep.add(name)
-                source_desc = f'файла прокси ({len(keep)} прокси)'
-            else:
-                QMessageBox.warning(self, 'Очистка профилей',
-                                    f'Файл прокси не найден:\n{proxy_file}')
-                return
-        elif single_proxy:
-            name = profile_name_from_line(single_proxy)
-            if name:
-                keep.add(name)
-            source_desc = 'single proxy'
-        else:
-            source_desc = '(прокси не настроены — будут удалены все)'
-
-        to_delete = sorted(existing - keep)
-        if not to_delete:
-            QMessageBox.information(self, 'Очистка профилей',
-                                    f'Все профили соответствуют {source_desc}. Нечего удалять.')
-            return
-
-        preview = '\n'.join(to_delete[:15])
-        if len(to_delete) > 15:
-            preview += f'\n... и ещё {len(to_delete) - 15}'
-
-        reply = QMessageBox.question(
-            self, 'Очистка профилей',
-            f'Будет удалено {len(to_delete)} профилей '
-            f'(не входящих в {source_desc}):\n\n{preview}\n\nПродолжить?',
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        deleted, failed = 0, 0
-        for name in to_delete:
-            try:
-                shutil.rmtree(profiles_dir / name)
-                deleted += 1
-            except Exception as exc:
-                self.append_log('ERROR', f'Ошибка удаления профиля {name}: {exc}')
-                failed += 1
-
-        self.append_log('INFO',
-                        f'Очистка профилей: удалено {deleted}'
-                        + (f', ошибок {failed}' if failed else ''))
 
     @staticmethod
     def _format_elapsed(seconds: float) -> str:
@@ -956,7 +890,7 @@ class MainWindow(QMainWindow):
 
     def _on_debug_log_toggled(self, checked: bool) -> None:
         self.config['debug_log'] = checked
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_ozon.json', self.config)
 
     def _write_debug_log(self, message: str) -> None:
         debug_dir = self.base_dir / 'logs' / 'debug'
@@ -989,7 +923,7 @@ class MainWindow(QMainWindow):
             launch_parser=self._cron_request_launch,
             log=self._cron_bridge.log_requested.emit,
             is_parser_running=lambda: bool(self.worker and self.worker.isRunning()),
-            save_config_fn=lambda cfg: save_config(self.base_dir / 'config.json', cfg),
+            save_config_fn=lambda cfg: save_config(self.base_dir / 'config_ozon.json', cfg),
         )
         # Восстановить активное расписание если было включено при последнем сеансе
         if self.config.get('cron', {}).get('enabled', False):
@@ -1053,7 +987,7 @@ class MainWindow(QMainWindow):
             cfg[k] = v
         self.config['notifications'] = self.notifications_tab.to_dict()
         self.cron_manager.config = self.config
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_ozon.json', self.config)
 
         if self.cron_manager.is_active():
             self.cron_manager.deactivate()
@@ -1083,7 +1017,7 @@ class MainWindow(QMainWindow):
             cfg[k] = v
         self.config['notifications'] = self.notifications_tab.to_dict()
         self.cron_manager.config = self.config
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_ozon.json', self.config)
 
         ok, errors = validate_cron_conditions(
             self.config,

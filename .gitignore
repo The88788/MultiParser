@@ -4,7 +4,6 @@
 # PyInstaller artifacts
 build/
 dist/
-*.spec
 
 # Python cache
 __pycache__/
@@ -21,3 +20,8 @@ output/
 
 # Sensitive
 cookies_wb.json
+
+# Local configs (не перезаписываются при git pull)
+config.json
+config_ozon.json
+config_wb.json

@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "88788 WB Parser",
-    "developer": "VLK"
+    "developer": "The 88788",
+    "developer_url": "https://the88788.com"
   },
   "parser": {
     "headed": true,

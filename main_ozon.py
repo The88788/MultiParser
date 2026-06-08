@@ -45,7 +45,12 @@ def main() -> int:
 
     config_path = base_dir / "config_ozon.json"
     if not config_path.exists():
-        raise FileNotFoundError(f"Не найден config_ozon.json: {config_path}")
+        default_path = resources_dir / "config_ozon.default.json"
+        if default_path.exists():
+            import shutil
+            shutil.copy2(str(default_path), str(config_path))
+        else:
+            raise FileNotFoundError(f"Не найден config_ozon.json и config_ozon.default.json: {resources_dir}")
 
     config = load_config(config_path)
 

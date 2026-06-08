@@ -462,7 +462,9 @@ class MainWindow(QMainWindow):
         self._fit_window_to_available_screen()
 
     def choose_proxy_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, 'Выбор файла с прокси', str(self.base_dir), 'Text files (*.txt);;All files (*)')
+        proxies_dir = self.base_dir / 'proxies'
+        proxies_dir.mkdir(exist_ok=True)
+        path, _ = QFileDialog.getOpenFileName(self, 'Выбор файла с прокси', str(proxies_dir), 'Text files (*.txt);;All files (*)')
         if path:
             self.proxy_settings.proxy_file_input.setText(path)
 
@@ -480,7 +482,7 @@ class MainWindow(QMainWindow):
     def save_source_path(self) -> None:
         self.config.setdefault('source', {})
         self.config['source']['path'] = self.source_input.text().strip()
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_wb.json', self.config)
 
     def append_log(self, level: str, message: str) -> None:
         sb = self.log_edit.verticalScrollBar()
@@ -887,7 +889,7 @@ class MainWindow(QMainWindow):
 
     def _on_debug_log_toggled(self, checked: bool) -> None:
         self.config['debug_log'] = checked
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_wb.json', self.config)
 
     def _write_debug_log(self, message: str) -> None:
         debug_dir = self.base_dir / 'logs' / 'debug'
@@ -920,7 +922,7 @@ class MainWindow(QMainWindow):
             launch_parser=self._cron_request_launch,
             log=self._cron_bridge.log_requested.emit,
             is_parser_running=lambda: bool(self.worker and self.worker.isRunning()),
-            save_config_fn=lambda cfg: save_config(self.base_dir / 'config.json', cfg),
+            save_config_fn=lambda cfg: save_config(self.base_dir / 'config_wb.json', cfg),
         )
         # Восстановить активное расписание если было включено при последнем сеансе
         if self.config.get('cron', {}).get('enabled', False):
@@ -984,7 +986,7 @@ class MainWindow(QMainWindow):
             cfg[k] = v
         self.config['notifications'] = self.notifications_tab.to_dict()
         self.cron_manager.config = self.config
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_wb.json', self.config)
 
         if self.cron_manager.is_active():
             self.cron_manager.deactivate()
@@ -1014,7 +1016,7 @@ class MainWindow(QMainWindow):
             cfg[k] = v
         self.config['notifications'] = self.notifications_tab.to_dict()
         self.cron_manager.config = self.config
-        save_config(self.base_dir / 'config.json', self.config)
+        save_config(self.base_dir / 'config_wb.json', self.config)
 
         ok, errors = validate_cron_conditions(
             self.config,
