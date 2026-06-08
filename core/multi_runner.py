@@ -44,7 +44,7 @@ def _expand_variants_into_queue(
     size_added = 0
     color_added = 0
 
-    if parser_cfg.get('parse_size_variants', True):
+    if parser_cfg.get('parse_size_variants', False):
         for item in (result.size_variant_map or []):
             sku = (item.get('sku') or '').strip()
             if not sku or sku == result.current_product_id:
@@ -62,7 +62,7 @@ def _expand_variants_into_queue(
             ))
             size_added += 1
 
-    if parser_cfg.get('parse_color_variants', True):
+    if parser_cfg.get('parse_color_variants', False):
         for color_id in (result.color_variant_ids or []):
             color_id = (color_id or '').strip()
             if not color_id or color_id == result.current_product_id:

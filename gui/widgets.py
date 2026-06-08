@@ -69,10 +69,10 @@ class ParserSettingsGroup(QGroupBox):
             spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             spin.setMinimumWidth(0)
         self.size_variants_checkbox = QCheckBox('Size variant в очередь')
-        self.size_variants_checkbox.setChecked(bool(parser_config.get('parse_size_variants', True)))
+        self.size_variants_checkbox.setChecked(bool(parser_config.get('parse_size_variants', False)))
 
         self.color_variants_checkbox = QCheckBox('Color variant в очередь')
-        self.color_variants_checkbox.setChecked(bool(parser_config.get('parse_color_variants', True)))
+        self.color_variants_checkbox.setChecked(bool(parser_config.get('parse_color_variants', False)))
 
         # --- Мульти-парсинг ---
         self.multi_parsing_checkbox = QCheckBox('Мульти-парсинг')

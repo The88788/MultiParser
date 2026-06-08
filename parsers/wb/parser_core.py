@@ -1779,10 +1779,10 @@ class ParserCore:
             return
 
         # WB: size variant = chrt_id, не nmId — в очередь НЕ добавляем
-        if self.parser_cfg.get('parse_size_variants', True):
+        if self.parser_cfg.get('parse_size_variants', False):
             self.stats.size_variants += result.count_size
 
-        if self.parser_cfg.get('parse_color_variants', True):
+        if self.parser_cfg.get('parse_color_variants', False):
             for color_id in result.color_variant_ids:
                 relation = self.queue_manager.add_relation(
                     root_input_id=result.root_input_id,
