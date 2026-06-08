@@ -63,6 +63,7 @@
     "bot_token": "",
     "chat_id": "",
     "thread_id": "",
+    "tg_proxy": "",
     "notify_single_done": true,
     "notify_multi_done": true,
     "notify_cron_done": true,

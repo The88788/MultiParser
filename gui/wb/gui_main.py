@@ -903,10 +903,12 @@ class MainWindow(QMainWindow):
         ntf = self.config.get('notifications', {})
         if not ntf.get('enabled', False):
             return None
+        tg_proxy = ntf.get('tg_proxy', '').strip()
+        proxies = [tg_proxy] if tg_proxy else list(self.last_valid_proxy_lines)
         from core.telegram_notifier import TelegramNotifier
         return TelegramNotifier(
             ntf.get('bot_token', ''), ntf.get('chat_id', ''),
-            self.last_valid_proxy_lines, ntf.get('thread_id', ''),
+            proxies, ntf.get('thread_id', ''),
             parser_name='WB Parser',
         )
 

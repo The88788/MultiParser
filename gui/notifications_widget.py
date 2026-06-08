@@ -78,6 +78,19 @@ class NotificationsTab(QWidget):
         thread_row.addWidget(self.test_tg_btn)
         bot_layout.addLayout(thread_row)
 
+        proxy_row = QHBoxLayout()
+        proxy_lbl = QLabel('Прокси для Telegram:')
+        proxy_lbl.setToolTip(
+            'Прокси для отправки уведомлений, если Telegram заблокирован на сервере.\n'
+            'Формат: http://login:pass@host:port\n'
+            'Оставьте пустым для прямого подключения.'
+        )
+        proxy_row.addWidget(proxy_lbl)
+        self.tg_proxy_edit = QLineEdit()
+        self.tg_proxy_edit.setPlaceholderText('http://login:pass@host:port  (необязательно)')
+        proxy_row.addWidget(self.tg_proxy_edit, 1)
+        bot_layout.addLayout(proxy_row)
+
         root.addWidget(bot_group)
 
         # ── О каких событиях уведомлять ────────────────────────────────
@@ -137,6 +150,7 @@ class NotificationsTab(QWidget):
         self.bot_token_edit.setText(cfg.get('bot_token', ''))
         self.chat_id_edit.setText(cfg.get('chat_id', ''))
         self.thread_id_edit.setText(str(cfg.get('thread_id', '')))
+        self.tg_proxy_edit.setText(cfg.get('tg_proxy', ''))
         self.notify_single_done_cb.setChecked(bool(cfg.get('notify_single_done', True)))
         self.notify_multi_done_cb.setChecked(bool(cfg.get('notify_multi_done', True)))
         self.notify_cron_done_cb.setChecked(bool(cfg.get('notify_cron_done', True)))
@@ -152,6 +166,7 @@ class NotificationsTab(QWidget):
             'bot_token': self.bot_token_edit.text().strip(),
             'chat_id': self.chat_id_edit.text().strip(),
             'thread_id': self.thread_id_edit.text().strip(),
+            'tg_proxy': self.tg_proxy_edit.text().strip(),
             'notify_single_done': self.notify_single_done_cb.isChecked(),
             'notify_multi_done': self.notify_multi_done_cb.isChecked(),
             'notify_cron_done': self.notify_cron_done_cb.isChecked(),
