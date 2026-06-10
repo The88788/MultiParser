@@ -104,6 +104,8 @@ class CronManager:
         self._active = False
         self._lock = threading.Lock()
         self._history_file = base_dir / 'logs' / 'cron_history.json'
+        self._iteration_running = False
+        self._stop_iteration_flag = False
 
     # ------------------------------------------------------------------ #
     #  Public API                                                          #
@@ -162,6 +164,12 @@ class CronManager:
     def run_now(self) -> None:
         """Немедленная одна итерация (кнопка «Запустить сейчас»)."""
         threading.Thread(target=self._run_iteration, daemon=True).start()
+
+    def is_iteration_running(self) -> bool:
+        return self._iteration_running
+
+    def stop_iteration(self) -> None:
+        self._stop_iteration_flag = True
 
     def record_parse_result(self, payload: dict) -> None:
         """Вызывается из GUI-потока после завершения парсера запущенного cron-ом."""
@@ -278,6 +286,15 @@ class CronManager:
         import time as _time
         from core.telegram_notifier import TelegramNotifier
 
+        self._iteration_running = True
+        self._stop_iteration_flag = False
+        try:
+            self._run_iteration_body(_time, TelegramNotifier)
+        finally:
+            self._iteration_running = False
+            self._stop_iteration_flag = False
+
+    def _run_iteration_body(self, _time, TelegramNotifier) -> None:
         # 0. Выходные дни
         if self.config.get('cron', {}).get('skip_weekends', False):
             wd = datetime.now().weekday()
@@ -331,8 +348,11 @@ class CronManager:
                 return
             self.log('CRON', 'Парсер занят — ожидание (до 30 мин)...')
             deadline = _time.time() + 1800
-            while self.is_parser_running() and _time.time() < deadline:
+            while self.is_parser_running() and _time.time() < deadline and not self._stop_iteration_flag:
                 _time.sleep(5)
+            if self._stop_iteration_flag:
+                self.log('CRON', 'Итерация остановлена пользователем')
+                return
             if self.is_parser_running():
                 self.log('WARNING', 'Парсер занят > 30 мин — итерация пропущена')
                 self._record_history('skipped', message='Парсер занят > 30 мин')
@@ -357,7 +377,7 @@ class CronManager:
                 base_dir=self.base_dir,
                 config=runtime_config,
                 log=self.log,
-                stop_requested=lambda: not self._active,
+                stop_requested=lambda: not self._active or self._stop_iteration_flag,
             )
             checker.run()
             valid_proxy_lines = checker.valid_proxy_lines
@@ -423,6 +443,10 @@ class CronManager:
             )
 
         # 7. Запуск парсера
+        if self._stop_iteration_flag:
+            self.log('CRON', 'Итерация остановлена пользователем')
+            return
+
         cron_cfg['last_run_iso'] = datetime.now().isoformat()
         self.save_config_fn(self.config)
 

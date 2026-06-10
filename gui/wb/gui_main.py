@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from core.cron_manager import CronManager, validate_cron_conditions
 from parsers.wb.parser_core import ParserCore
+from parsers.wb.utils import extract_wb_product_id_from_url
 from core.proxy_checker import cleanup_stale_profiles
 from core.utils import save_config, ensure_runtime_dirs
 from core import autostart as _autostart
@@ -552,7 +553,13 @@ class MainWindow(QMainWindow):
                         notifier.notify_progress(current_milestone, self._last_stats_total or total, interval)
 
     def _collect_input_ids(self) -> list[str]:
-        direct = [line.strip() for line in self.input_edit.toPlainText().splitlines() if line.strip()]
+        direct = []
+        for line in self.input_edit.toPlainText().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            pid = extract_wb_product_id_from_url(line)
+            direct.append(pid if pid else line)
         source_ids = self._load_ids_from_source(self.source_input.text().strip())
         combined = []
         seen = set()
@@ -567,6 +574,9 @@ class MainWindow(QMainWindow):
             return []
         try:
             if source.startswith('http://') or source.startswith('https://'):
+                pid = extract_wb_product_id_from_url(source)
+                if pid:
+                    return [pid]
                 with urlopen(source, timeout=20) as response:
                     content = response.read().decode('utf-8', errors='ignore')
                 self.append_log('INFO', f'Загружен внешний txt-файл: {source}')
@@ -646,6 +656,10 @@ class MainWindow(QMainWindow):
         if self.proxy_test_worker and self.proxy_test_worker.isRunning():
             self.proxy_test_worker.stop()
             self.append_log('WARNING', 'Запрошена остановка проверки прокси после текущей прокси')
+            stopped_something = True
+        if self.cron_manager.is_iteration_running():
+            self.cron_manager.stop_iteration()
+            self.append_log('WARNING', 'Запрошена остановка итерации планировщика')
             stopped_something = True
         if not stopped_something:
             self.append_log('INFO', 'Сейчас ничего не выполняется')
@@ -972,6 +986,7 @@ class MainWindow(QMainWindow):
         self._cron_started_by_cron = True
         self._last_progress_milestone = 0
         self._last_stats_total = 0
+        self._stop_requested_once = False
         # Лог не очищаем — пользователь должен видеть результаты проверки прокси
         self.worker = ParserWorker(
             base_dir=self.base_dir,
