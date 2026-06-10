@@ -125,8 +125,7 @@ def extract_product_name_from_cdn(cdn_data: dict) -> str:
 def extract_seller_from_cdn(cdn_data: dict) -> str:
     try:
         sellers = cdn_data.get('sellers') or {}
-        name = sellers.get('supplierName') or sellers.get('trademark') or ''
-        return normalize_space(name)
+        return normalize_space(sellers.get('trademark', ''))
     except Exception:
         return ''
 
