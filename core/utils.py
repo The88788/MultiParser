@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-PRODUCT_URL_RE = re.compile(r'/product/[^/]*?(\d+)(?:/|\?|$)')
 INCIDENT_RE = re.compile(r'Инцидент:\s*([^\n\r<]+)')
 ILLEGAL_XLSX_RE = re.compile(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]')
 
@@ -62,14 +61,6 @@ def random_pause_seconds(min_value: float, max_value: float) -> float:
         min_value, max_value = max_value, min_value
     return random.uniform(min_value, max_value)
 
-
-def extract_product_id_from_url(url: str) -> str:
-    match = PRODUCT_URL_RE.search(url or '')
-    return match.group(1) if match else ''
-
-
-def build_product_url(product_id: str) -> str:
-    return f'https://www.ozon.ru/product/{product_id}'
 
 
 def normalize_space(value: str) -> str:

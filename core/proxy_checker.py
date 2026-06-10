@@ -531,6 +531,47 @@ class ProxyChecker:
         except Exception:
             pass
 
+    def _dismiss_wb_popups(self, page, label: str = '') -> None:
+        """Закрывает WB-специфичные попапы: город, рекламные оверлеи, уведомления."""
+        # Сначала пробуем Escape — закрывает большинство WB-модалов
+        try:
+            if page.locator('[class*="popupContent"]').is_visible(timeout=800):
+                page.keyboard.press('Escape')
+                page.wait_for_timeout(400)
+                if label:
+                    self._log('INFO', f'[{label}] Закрыт попап WB (Escape)')
+                return
+        except Exception:
+            pass
+
+        candidates = [
+            # Кнопка X рядом с popupContent (сиблинг или родитель)
+            ('xpath=//div[contains(@class,"popupContent")]/..//button', 'попап X'),
+            ('xpath=//div[contains(@class,"popupContent")]/preceding-sibling::button', 'попап X'),
+            # Город
+            ('button:has-text("Да, верно")', 'город'),
+            ('[class*="city-confirm"] button:first-child', 'город'),
+            ('.city-confirm__btn_yes', 'город'),
+            # Универсальные кнопки закрытия
+            ('button:has-text("×")', 'оверлей ×'),
+            ('button:has-text("✕")', 'оверлей ✕'),
+            ('button[class*="close"]:visible', 'оверлей close'),
+            ('button[aria-label*="Закрыть"]:visible', 'оверлей aria'),
+            ('button[aria-label*="close" i]:visible', 'оверлей aria-en'),
+            ('[class*="popup"] [class*="close"]:visible', 'popup close'),
+        ]
+        for selector, name in candidates:
+            try:
+                btn = page.locator(selector).first
+                if btn.is_visible(timeout=500):
+                    btn.click(timeout=1200)
+                    page.wait_for_timeout(400)
+                    if label:
+                        self._log('INFO', f'[{label}] Закрыт попап WB ({name}): {selector}')
+                    return
+            except Exception:
+                pass
+
     def _detect_antibot_challenge(self, page) -> bool:
         try:
             title = page.title()
@@ -661,6 +702,9 @@ class ProxyChecker:
             if 'ERR_PROXY_CONNECTION_FAILED' in err_msg:
                 result.status = 'connection_failed'
                 self._log('ERROR', f'[{label}] Нет подключения к прокси')
+            elif 'ERR_TIMED_OUT' in err_msg or 'TIMED_OUT' in err_msg:
+                result.status = 'timeout'
+                self._log('ERROR', f'[{label}] Таймаут сети (прокси)')
             else:
                 result.status = f'{type(e).__name__}' if not err_msg else f'{type(e).__name__}: {err_msg[:120]}'
                 self._log('ERROR', f'[{label}] Необработанное исключение: {type(e).__name__}: {e}')
@@ -759,10 +803,24 @@ class ProxyChecker:
             result.status = 'missing_required_fields'
         return result
 
+    def _get_wb_product_urls(self, page) -> list[str]:
+        try:
+            urls = page.evaluate("""
+                () => {
+                    const links = Array.from(document.querySelectorAll('a[href*="/catalog/"]'));
+                    return [...new Set(links.map(a => a.href).filter(h => /\\/catalog\\/\\d+/.test(h)))];
+                }
+            """)
+            random.shuffle(urls)
+            return urls[:2]
+        except Exception:
+            return []
+
     def _check_wb(self, page, proxy, label, result, antidetect_cfg, context) -> ProxyTestResult:
         page.goto('https://www.wildberries.ru', wait_until='domcontentloaded', timeout=30000)
         page.wait_for_timeout(2000)
         self._dismiss_cookie_consent(page, label)
+        self._dismiss_wb_popups(page, label)
         self._log_page_state(page, label, 'Главная WB загружена')
 
         body_text = page.locator('body').inner_text(timeout=5000)
@@ -772,24 +830,24 @@ class ProxyChecker:
             result.status = 'access_denied'
             return result
 
-        # Ждём появления продуктовых ссылок — WB SPA рендерит карточки через JS
-        try:
-            page.wait_for_selector('a[href*="/catalog/"]', timeout=6000)
-        except Exception:
-            pass  # Не нашли за 6 сек — попробуем извлечь что есть
-
-        # Ищем ссылки на карточки товаров WB (/catalog/)
-        try:
-            urls = page.evaluate("""
-                () => {
-                    const links = Array.from(document.querySelectorAll('a[href*="/catalog/"]'));
-                    return [...new Set(links.map(a => a.href).filter(h => /\\/catalog\\/\\d+/.test(h)))];
-                }
-            """)
-            random.shuffle(urls)
-            product_urls = urls[:2]
-        except Exception:
-            product_urls = []
+        # Ищем карточки товаров WB (/catalog/\d+) с retry.
+        # wait_for_selector срабатывает на nav-ссылки /catalog/category — поэтому
+        # проверяем именно числовые ID и повторяем, пока SPA не дорендерит карточки.
+        product_urls: list[str] = []
+        attempts = 3
+        for attempt in range(1, attempts + 1):
+            product_urls = self._get_wb_product_urls(page)
+            if product_urls:
+                break
+            if attempt < attempts:
+                self._log('INFO', f'[{label}] Ссылки на товары WB не найдены (попытка {attempt}/{attempts}), ждём...')
+                page.wait_for_timeout(2000)
+                self._dismiss_wb_popups(page, label)
+                try:
+                    page.mouse.wheel(0, 300)
+                    page.wait_for_timeout(500)
+                except Exception:
+                    pass
 
         if not product_urls:
             self._log_page_state(page, label, 'Товары WB не найдены на главной')

@@ -6,7 +6,8 @@ import urllib.request
 from typing import Any
 
 from parsers.wb.models import VariantInfo
-from core.utils import dedupe_keep_order, extract_incident_id, extract_product_id_from_url, normalize_price, normalize_space
+from core.utils import dedupe_keep_order, extract_incident_id, normalize_price, normalize_space
+from parsers.wb.utils import build_wb_product_url, extract_wb_product_id_from_url
 
 
 # ---------- Детекторы состояния страницы ----------
@@ -165,10 +166,9 @@ def extract_color_variants_from_cdn(cdn_data: dict, current_nm: str) -> list[Var
             if not nm or nm == current_nm or nm in seen:
                 continue
             seen.add(nm)
-            from core.utils import build_product_url
             variants.append(VariantInfo(
                 sku=nm,
-                link=build_product_url(nm),
+                link=build_wb_product_url(nm),
                 text=nm,
                 active=False,
             ))
@@ -183,7 +183,7 @@ def extract_color_variants_from_links(urls: list[str], current_product_id: str) 
     items: list[VariantInfo] = []
     seen: set[str] = set()
     for href in urls:
-        product_id = extract_product_id_from_url(href)
+        product_id = extract_wb_product_id_from_url(href)
         if not product_id or product_id == current_product_id or product_id in seen:
             continue
         seen.add(product_id)

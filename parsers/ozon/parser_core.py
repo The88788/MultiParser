@@ -43,7 +43,8 @@ from parsers.ozon.extractors import (
 from parsers.ozon.models import ParseResult, RunOutput, RunStats
 from core.proxy_manager import ProxyManager
 from core.queue_manager import QueueManager
-from core.utils import build_product_url, extract_product_id_from_url, now_str, time_str, random_pause_seconds, stamp_for_filename
+from core.utils import now_str, time_str, random_pause_seconds, stamp_for_filename
+from parsers.ozon.utils import build_ozon_product_url, extract_ozon_product_id_from_url
 from core.browser_utils import random_ua_profile, random_user_agent, random_viewport, random_geolocation, load_cookies, save_cookies, random_antidetect_strategy, proxy_check_strategy, get_sync_playwright, find_chrome_executable
 
 
@@ -1015,7 +1016,7 @@ class ParserCore:
         return self.output
 
     def _parse_one(self, page: Page, entry) -> ParseResult:
-        current_url = entry.url_old or build_product_url(entry.current_product_id)
+        current_url = entry.url_old or build_ozon_product_url(entry.current_product_id)
         result = ParseResult(
             root_input_id=entry.root_input_id,
             current_product_id=entry.current_product_id,
@@ -1527,7 +1528,7 @@ class ParserCore:
                     return digits
         except PlaywrightError:
             pass
-        return extract_product_id_from_url(page.url)
+        return extract_ozon_product_id_from_url(page.url)
 
     def _fill_prices(self, page, result: ParseResult) -> None:
         texts: list[str] = []
@@ -1817,7 +1818,7 @@ class ParserCore:
                     current_product_id=sku,
                     source_type='size_variant',
                     parent_product_id=result.current_product_id,
-                    url_old=build_product_url(sku),
+                    url_old=build_ozon_product_url(sku),
                 )
         if self.parser_cfg.get('parse_color_variants', True):
             for color_id in result.color_variant_ids:
@@ -1835,7 +1836,7 @@ class ParserCore:
                     current_product_id=color_id,
                     source_type='color_variant',
                     parent_product_id=result.current_product_id,
-                    url_old=build_product_url(color_id),
+                    url_old=build_ozon_product_url(color_id),
                 )
 
     @staticmethod

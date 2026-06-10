@@ -11,7 +11,6 @@ from typing import Callable
 
 from core.browser_utils import get_sync_playwright
 from parsers.ozon.models import RunStats, RunOutput, QueueEntry
-from core.utils import build_product_url
 
 
 def _proxy_profile_name(proxy: dict) -> str:
@@ -58,7 +57,7 @@ def _expand_variants_into_queue(
                 current_product_id=sku,
                 source_type='size_variant',
                 parent_product_id=result.current_product_id,
-                url_old=build_product_url(sku),
+                url_old='',
             ))
             size_added += 1
 
@@ -76,7 +75,7 @@ def _expand_variants_into_queue(
                 current_product_id=color_id,
                 source_type='color_variant',
                 parent_product_id=result.current_product_id,
-                url_old=build_product_url(color_id),
+                url_old='',
             ))
             color_added += 1
 

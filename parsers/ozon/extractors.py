@@ -6,7 +6,8 @@ import re
 from typing import Any
 
 from parsers.ozon.models import VariantInfo
-from core.utils import dedupe_keep_order, extract_incident_id, extract_product_id_from_url, normalize_price, normalize_space
+from core.utils import dedupe_keep_order, extract_incident_id, normalize_price, normalize_space
+from parsers.ozon.utils import extract_ozon_product_id_from_url
 
 
 def detect_access_denied(text: str) -> tuple[bool, str]:
@@ -165,7 +166,7 @@ def extract_color_variants_from_links(urls: list[str], current_product_id: str) 
     items: list[VariantInfo] = []
     seen: set[str] = set()
     for href in urls:
-        product_id = extract_product_id_from_url(href)
+        product_id = extract_ozon_product_id_from_url(href)
         if not product_id or product_id == current_product_id or product_id in seen:
             continue
         seen.add(product_id)

@@ -46,7 +46,8 @@ from parsers.wb.extractors import (
 from parsers.wb.models import ErrorRow, ParseResult, RunOutput, RunStats
 from core.proxy_manager import ProxyManager
 from core.queue_manager import QueueManager
-from core.utils import build_product_url, extract_product_id_from_url, normalize_space, normalize_price, now_str, time_str, random_pause_seconds, stamp_for_filename
+from core.utils import normalize_space, normalize_price, now_str, time_str, random_pause_seconds, stamp_for_filename
+from parsers.wb.utils import build_wb_product_url, extract_wb_product_id_from_url
 from core.browser_utils import random_ua_profile, random_user_agent, random_viewport, random_geolocation, load_cookies, save_cookies, random_antidetect_strategy, proxy_check_strategy, get_sync_playwright, find_chrome_executable
 
 
@@ -1034,7 +1035,7 @@ class ParserCore:
         return self.output
 
     def _parse_one(self, page: Page, entry) -> ParseResult:
-        current_url = entry.url_old or build_product_url(entry.current_product_id)
+        current_url = entry.url_old or build_wb_product_url(entry.current_product_id)
         result = ParseResult(
             root_input_id=entry.root_input_id,
             current_product_id=entry.current_product_id,
@@ -1130,6 +1131,16 @@ class ParserCore:
                     result.parse_status = 'ok'
                     result.error = ''
                     return result
+
+                # CSS-fallback: React мог не отрендерить текст к моменту чтения body
+                try:
+                    if page.locator('[class*="soldOutProduct"]').count() > 0:
+                        result.sold_out = 'Да'
+                        result.parse_status = 'ok'
+                        result.error = ''
+                        return result
+                except Exception:
+                    pass
 
                 result.sold_out = 'Нет'
 
@@ -1509,7 +1520,7 @@ class ParserCore:
 
     def _extract_current_product_id(self, page) -> str:
         # Из URL /catalog/{nmId}/ — первый и основной источник
-        url_id = extract_product_id_from_url(page.url)
+        url_id = extract_wb_product_id_from_url(page.url)
         if url_id:
             return url_id
         # Фоллбэк: поле «Артикул» на странице
@@ -1798,7 +1809,7 @@ class ParserCore:
                     current_product_id=color_id,
                     source_type='color_variant',
                     parent_product_id=result.current_product_id,
-                    url_old=build_product_url(color_id),
+                    url_old=build_wb_product_url(color_id),
                 )
 
     @staticmethod

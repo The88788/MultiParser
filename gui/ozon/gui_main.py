@@ -110,6 +110,8 @@ class MainWindow(QMainWindow):
         input_layout.setContentsMargins(8, 8, 8, 8)
         self.input_edit = QPlainTextEdit()
         self.input_edit.setPlaceholderText('Вставь список ID / SKU, по одному в строке')
+        if saved_ids := self.config.get('input_text', ''):
+            self.input_edit.setPlainText(saved_ids)
         input_layout.addWidget(self.input_edit, 1)
 
         source_row = QHBoxLayout()
@@ -1081,8 +1083,10 @@ class MainWindow(QMainWindow):
         cfg = self.config.setdefault('cron', {})
         for k, v in cron_settings.items():
             cfg[k] = v
+        self.config['input_text'] = self.input_edit.toPlainText()
         # Save all settings (parser, proxy, antidetect, captcha, notifications)
         self._build_runtime_config()
+        save_config(self.base_dir / 'config_ozon.json', self.config)
         super().closeEvent(event)
 
     def _update_cron_history(self, history: list[dict]) -> None:
