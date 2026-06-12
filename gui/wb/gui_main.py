@@ -5,7 +5,7 @@ import html
 from pathlib import Path
 from urllib.request import urlopen
 
-from PySide6.QtCore import QUrl, QSize, QPropertyAnimation, QEasingCurve, Qt, QEvent, QObject, Signal, QTimer
+from PySide6.QtCore import QUrl, QSize, Qt, QEvent, QObject, Signal, QTimer
 from PySide6.QtGui import QColor, QDesktopServices, QIcon, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox, QFileDialog, QFrame, QGroupBox, QHBoxLayout, QHeaderView,
@@ -146,6 +146,18 @@ class MainWindow(QMainWindow):
         self.antidetect_settings = AntidetectSettingsGroup(self.config.get('antidetect', {}))
         parser_layout.addWidget(self.antidetect_settings)
 
+        autostart_group = QGroupBox('Автозагрузка')
+        autostart_layout = QVBoxLayout(autostart_group)
+        self.autostart_checkbox = QCheckBox('Запускать при старте Windows')
+        self.autostart_checkbox.setChecked(_autostart.is_enabled(APP_TITLE))
+        autostart_hint = QLabel(
+            'При включении приложение будет автоматически запускаться после перезагрузки компьютера.'
+        )
+        autostart_hint.setWordWrap(True)
+        autostart_layout.addWidget(self.autostart_checkbox)
+        autostart_layout.addWidget(autostart_hint)
+        parser_layout.addWidget(autostart_group)
+
         parser_layout.addStretch(1)
         _parser_scroll.setWidget(_parser_content)
         _parser_outer.addWidget(_parser_scroll)
@@ -222,10 +234,41 @@ class MainWindow(QMainWindow):
         self.history_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.history_table.verticalHeader().setDefaultSectionSize(22)
         hist_layout.addWidget(self.history_table)
-        stats_layout.addWidget(hist_group)
+        stats_layout.addWidget(hist_group, 1)
 
-        stats_layout.addStretch(1)
         right_panel.addTab(stats_tab, 'Статистика')
+
+        logs_tab = QWidget()
+        logs_layout = QVBoxLayout(logs_tab)
+        logs_layout.setContentsMargins(8, 8, 8, 8)
+
+        log_toolbar = QHBoxLayout()
+        self.copy_log_button = QPushButton('Копировать логи')
+        self.clear_log_button = QPushButton('Очистить')
+        self.debug_log_checkbox = QCheckBox('Debug-лог в файл')
+        self.debug_log_checkbox.setChecked(bool(self.config.get('debug_log', False)))
+        self.debug_log_checkbox.setToolTip('Записывать DEBUG-сообщения в logs/debug/')
+        log_toolbar.addWidget(self.copy_log_button)
+        log_toolbar.addWidget(self.clear_log_button)
+        log_toolbar.addWidget(self.debug_log_checkbox)
+        log_toolbar.addStretch(1)
+        logs_layout.addLayout(log_toolbar)
+
+        self.log_edit = QTextEdit()
+        self.log_edit.setReadOnly(True)
+        logs_layout.addWidget(self.log_edit, 1)
+
+        self._scroll_bottom_btn = QPushButton(self.log_edit)
+        self._scroll_bottom_btn.setIcon(self._svg_icon('spin_down.svg'))
+        self._scroll_bottom_btn.setIconSize(QSize(12, 12))
+        self._scroll_bottom_btn.setFixedSize(26, 26)
+        self._scroll_bottom_btn.setToolTip('Прокрутить в конец')
+        self._scroll_bottom_btn.setProperty('compactIconButton', True)
+        self._scroll_bottom_btn.setCursor(Qt.PointingHandCursor)
+        self._scroll_bottom_btn.raise_()
+        self.log_edit.installEventFilter(self)
+
+        right_panel.addTab(logs_tab, 'Логи')
 
         about_tab = QWidget()
         about_layout = QVBoxLayout(about_tab)
@@ -242,19 +285,6 @@ class MainWindow(QMainWindow):
         about_group_layout.addWidget(site_label)
         about_group_layout.addWidget(tg_label)
         about_layout.addWidget(about_group)
-
-        autostart_group = QGroupBox('Автозагрузка')
-        autostart_layout = QVBoxLayout(autostart_group)
-        self.autostart_checkbox = QCheckBox('Запускать при старте Windows')
-        self.autostart_checkbox.setChecked(_autostart.is_enabled(APP_TITLE))
-        autostart_hint = QLabel(
-            'При включении приложение будет автоматически запускаться после перезагрузки компьютера.'
-        )
-        autostart_hint.setWordWrap(True)
-        autostart_layout.addWidget(self.autostart_checkbox)
-        autostart_layout.addWidget(autostart_hint)
-        about_layout.addWidget(autostart_group)
-
         about_layout.addStretch(1)
         right_panel.addTab(about_tab, 'О программе')
 
@@ -271,50 +301,7 @@ class MainWindow(QMainWindow):
         buttons.addWidget(self.open_output_button)
         top_vbox.addLayout(buttons)
 
-        root.addWidget(self._top_section, 2)
-
-        log_group = QGroupBox('Логи')
-        log_layout = QVBoxLayout(log_group)
-
-        log_toolbar = QHBoxLayout()
-        self.copy_log_button = QPushButton('Копировать логи')
-        self.clear_log_button = QPushButton('Очистить')
-        self.debug_log_checkbox = QCheckBox('Debug-лог в файл')
-        self.debug_log_checkbox.setChecked(bool(self.config.get('debug_log', False)))
-        self.debug_log_checkbox.setToolTip('Записывать DEBUG-сообщения в logs/debug/')
-        self.expand_log_button = QPushButton()
-        self.expand_log_button.setIcon(self._svg_icon('spin_up.svg'))
-        self.expand_log_button.setIconSize(QSize(14, 14))
-        self.expand_log_button.setFixedSize(28, 28)
-        self.expand_log_button.setToolTip('Развернуть логи на весь экран')
-        log_toolbar.addWidget(self.copy_log_button)
-        log_toolbar.addWidget(self.clear_log_button)
-        log_toolbar.addWidget(self.debug_log_checkbox)
-        log_toolbar.addStretch(1)
-        log_toolbar.addWidget(self.expand_log_button)
-        log_layout.addLayout(log_toolbar)
-
-        self.log_edit = QTextEdit()
-        self.log_edit.setReadOnly(True)
-        log_layout.addWidget(self.log_edit)
-        root.addWidget(log_group, 1)
-
-        self._scroll_bottom_btn = QPushButton(self.log_edit)
-        self._scroll_bottom_btn.setIcon(self._svg_icon('spin_down.svg'))
-        self._scroll_bottom_btn.setIconSize(QSize(12, 12))
-        self._scroll_bottom_btn.setFixedSize(26, 26)
-        self._scroll_bottom_btn.setToolTip('Прокрутить в конец')
-        self._scroll_bottom_btn.setProperty('compactIconButton', True)
-        self._scroll_bottom_btn.setCursor(Qt.PointingHandCursor)
-        self._scroll_bottom_btn.raise_()
-        self.log_edit.installEventFilter(self)
-
-        self._log_expanded = False
-        self._log_animating = False
-        self._log_anim = QPropertyAnimation(self._top_section, b'maximumHeight')
-        self._log_anim.setDuration(260)
-        self._log_anim.setEasingCurve(QEasingCurve.InOutCubic)
-        self._log_anim.finished.connect(self._on_log_anim_finished)
+        root.addWidget(self._top_section, 1)
 
         status = QStatusBar(self)
         self.setStatusBar(status)
@@ -372,7 +359,6 @@ class MainWindow(QMainWindow):
         self.copy_log_button.clicked.connect(self.copy_logs)
         self.clear_log_button.clicked.connect(self.log_edit.clear)
         self.debug_log_checkbox.toggled.connect(self._on_debug_log_toggled)
-        self.expand_log_button.clicked.connect(self.toggle_log_expand)
         self.log_edit.verticalScrollBar().valueChanged.connect(self._on_log_scroll_changed)
         self._scroll_bottom_btn.clicked.connect(self._scroll_log_to_bottom)
         # Cron-вкладка
@@ -847,30 +833,6 @@ class MainWindow(QMainWindow):
     def open_output_folder(self) -> None:
         path = self.base_dir / 'output'
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
-
-    def toggle_log_expand(self) -> None:
-        if self._log_animating:
-            return
-        self._log_animating = True
-        if not self._log_expanded:
-            current_h = self._top_section.height()
-            self._top_section.setMaximumHeight(current_h)
-            self._log_anim.setStartValue(current_h)
-            self._log_anim.setEndValue(0)
-            self._log_anim.start()
-            self.expand_log_button.setIcon(self._svg_icon('spin_down.svg'))
-            self.expand_log_button.setToolTip('Свернуть логи')
-            self._log_expanded = True
-        else:
-            self._log_anim.setStartValue(0)
-            self._log_anim.setEndValue(16777215)
-            self._log_anim.start()
-            self.expand_log_button.setIcon(self._svg_icon('spin_up.svg'))
-            self.expand_log_button.setToolTip('Развернуть логи на весь экран')
-            self._log_expanded = False
-
-    def _on_log_anim_finished(self) -> None:
-        self._log_animating = False
 
     def eventFilter(self, obj, event) -> bool:
         if obj is self.log_edit and event.type() == QEvent.Type.Resize:

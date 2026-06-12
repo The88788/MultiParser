@@ -52,6 +52,7 @@ class CronTab(QWidget):
 
         # ── Расписание ─────────────────────────────────────────────────
         sched_group = QGroupBox('Расписание')
+        sched_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         sg = QVBoxLayout(sched_group)
         sg.setSpacing(5)
 
@@ -162,6 +163,7 @@ class CronTab(QWidget):
 
         # ── Прокси ─────────────────────────────────────────────────────
         proxy_group = QGroupBox('Прокси')
+        proxy_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         pg = QVBoxLayout(proxy_group)
         pg.setSpacing(4)
 
@@ -216,7 +218,7 @@ class CronTab(QWidget):
         info_row.addWidget(self.last_run_label)
         root.addLayout(info_row)
 
-        root.addStretch()
+        root.addStretch(1)
 
     # ------------------------------------------------------------------ #
     #  Config load / save                                                  #
