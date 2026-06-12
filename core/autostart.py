@@ -7,10 +7,15 @@ from pathlib import Path
 _REG_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
 
 
-def _exe_path() -> str:
+def _launch_command() -> str:
     if getattr(sys, 'frozen', False):
-        return sys.executable
-    return str(Path(sys.argv[0]).resolve())
+        return f'"{sys.executable}"'
+    # Running from source: use pythonw.exe (no console window) from the same venv
+    python = Path(sys.executable)
+    pythonw = python.parent / 'pythonw.exe'
+    interpreter = pythonw if pythonw.exists() else python
+    script = Path(sys.argv[0]).resolve()
+    return f'"{interpreter}" "{script}"'
 
 
 def is_enabled(app_name: str) -> bool:
@@ -24,7 +29,7 @@ def is_enabled(app_name: str) -> bool:
 
 def enable(app_name: str) -> None:
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REG_KEY, 0, winreg.KEY_SET_VALUE) as key:
-        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{_exe_path()}"')
+        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, _launch_command())
 
 
 def disable(app_name: str) -> None:
