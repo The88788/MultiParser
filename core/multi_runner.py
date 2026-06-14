@@ -405,7 +405,12 @@ class MultiThreadRunner:
             self.stop_event.set()
 
         for w in workers:
-            w.join()
+            w.join(timeout=120)
+        hung = [w for w in workers if w.is_alive()]
+        if hung:
+            self.log('WARNING',
+                     f'{len(hung)} рабочих потока не завершились за 2 мин — '
+                     f'продолжаем без ожидания (браузеры Playwright могут зависнуть в фоне)')
 
         all_data = []
         all_errors = []

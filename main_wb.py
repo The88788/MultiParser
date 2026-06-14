@@ -1,6 +1,15 @@
 from pathlib import Path
 import sys
 
+if sys.platform == 'win32':
+    import ctypes as _ctypes
+    _mutex = _ctypes.windll.kernel32.CreateMutexW(None, False, 'Global\\MultiParser_WB_88788')
+    if _ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        _ctypes.windll.user32.MessageBoxW(
+            0, 'WB Parser уже запущен. Закройте существующее окно.', 'WB Parser', 0x30
+        )
+        sys.exit(0)
+
 from PySide6.QtWidgets import QApplication
 
 from core.utils import ensure_runtime_dirs, load_config

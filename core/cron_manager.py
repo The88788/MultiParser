@@ -91,6 +91,7 @@ class CronManager:
         log: Callable[[str, str], None],
         is_parser_running: Callable[[], bool],
         save_config_fn: Callable[[dict], None],
+        history_filename: str = 'cron_history.json',
     ) -> None:
         self.base_dir = base_dir
         self.config = config
@@ -103,7 +104,7 @@ class CronManager:
         self._timer: threading.Timer | None = None
         self._active = False
         self._lock = threading.Lock()
-        self._history_file = base_dir / 'logs' / 'cron_history.json'
+        self._history_file = base_dir / 'logs' / history_filename
         self._iteration_running = False
         self._stop_iteration_flag = False
 

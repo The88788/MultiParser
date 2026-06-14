@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import html
+import time
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -31,6 +32,28 @@ from gui.widgets import (
 )
 from gui.ozon.workers import ParserWorker, ProxyTestWorker
 from typing import List, Tuple
+
+
+def _kill_child_processes() -> None:
+    """Убивает все дочерние процессы текущего PID (patchright/node.exe/chrome)."""
+    try:
+        import os
+        import psutil
+        parent = psutil.Process(os.getpid())
+        children = parent.children(recursive=True)
+        for child in children:
+            try:
+                child.terminate()
+            except psutil.NoSuchProcess:
+                pass
+        _, alive = psutil.wait_procs(children, timeout=3)
+        for child in alive:
+            try:
+                child.kill()
+            except psutil.NoSuchProcess:
+                pass
+    except Exception:
+        pass
 
 
 class _CronBridge(QObject):
@@ -68,6 +91,10 @@ class MainWindow(QMainWindow):
         self._last_stats_total = 0
         self._stop_requested_once = False
         self._parser_ran_since_proxy_check: bool = False
+        self._worker_start_time: float = 0.0
+        self._worker_watchdog = QTimer(self)
+        self._worker_watchdog.setInterval(600_000)  # check every 10 min
+        self._worker_watchdog.timeout.connect(self._on_worker_watchdog)
 
         self.setWindowTitle(f'{APP_TITLE} {APP_VERSION}')
         self.resize(1100, 700)
@@ -625,7 +652,9 @@ class MainWindow(QMainWindow):
         self.append_log('INFO', f'Старт версии {APP_VERSION}')
         self.worker = ParserWorker(base_dir=self.base_dir, config=runtime_config, input_ids=input_ids,
                                    emitter=self.log_emitter, valid_proxy_lines=self.last_valid_proxy_lines)
+        self._worker_start_time = time.monotonic()
         self.worker.start()
+        self._worker_watchdog.start()
         self._parser_ran_since_proxy_check = True
         self.statusBar().showMessage('Парсинг запущен')
 
@@ -788,6 +817,7 @@ class MainWindow(QMainWindow):
         return f'{h} ч {m} мин {s} сек'
 
     def on_finished(self, payload: dict) -> None:
+        self._worker_watchdog.stop()
         self.last_output_file = payload.get('output_file', '')
         elapsed_str = self._format_elapsed(payload.get('elapsed', 0))
         self.append_log(
@@ -818,6 +848,7 @@ class MainWindow(QMainWindow):
             self._update_cron_labels()
 
     def on_worker_error(self, message: str) -> None:
+        self._worker_watchdog.stop()
         self.append_log('ERROR', message)
         self.statusBar().showMessage('Ошибка')
         ntf = self.config.get('notifications', {})
@@ -866,6 +897,22 @@ class MainWindow(QMainWindow):
         else:
             self.statusBar().showMessage('Логи пусты', 2000)
 
+    def _on_worker_watchdog(self) -> None:
+        if not (self.worker and self.worker.isRunning()):
+            self._worker_watchdog.stop()
+            return
+        max_hours = float(self.config.get('parser', {}).get('max_runtime_hours', 10))
+        elapsed_h = (time.monotonic() - self._worker_start_time) / 3600
+        if elapsed_h >= max_hours:
+            self.append_log(
+                'WARNING',
+                f'Воркер работает {elapsed_h:.1f} ч (лимит {max_hours:.0f} ч) — '
+                f'принудительная остановка. Следующий Cron-запуск пройдёт без помех.'
+            )
+            self.worker.stop()
+            self.worker.terminate()
+            self._worker_watchdog.stop()
+
     def _on_debug_log_toggled(self, checked: bool) -> None:
         self.config['debug_log'] = checked
         save_config(self.base_dir / 'config_ozon.json', self.config)
@@ -904,6 +951,7 @@ class MainWindow(QMainWindow):
             log=self._cron_bridge.log_requested.emit,
             is_parser_running=lambda: bool(self.worker and self.worker.isRunning()),
             save_config_fn=lambda cfg: save_config(self.base_dir / 'config_ozon.json', cfg),
+            history_filename='cron_history_ozon.json',
         )
         # Восстановить активное расписание если было включено при последнем сеансе
         if self.config.get('cron', {}).get('enabled', False):
@@ -958,7 +1006,9 @@ class MainWindow(QMainWindow):
             emitter=self.log_emitter,
             valid_proxy_lines=valid_proxy_lines,
         )
+        self._worker_start_time = time.monotonic()
         self.worker.start()
+        self._worker_watchdog.start()
         self.statusBar().showMessage('[Cron] Парсинг запущен по расписанию')
 
     def _on_cron_activate_toggled(self) -> None:
@@ -1055,13 +1105,37 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event) -> None:
-        # Flush cron tab settings (not flushed by _build_runtime_config)
+        # 1. Деактивируем Cron чтобы не стрельнул во время закрытия
+        try:
+            if self.cron_manager.is_active():
+                self.cron_manager.deactivate()
+        except Exception:
+            pass
+
+        # 2. Останавливаем сторожевик
+        self._worker_watchdog.stop()
+
+        # 3. Мягкая остановка парсера → ждём 8 сек → принудительная
+        if self.worker and self.worker.isRunning():
+            self.worker.stop()
+            if not self.worker.wait(8000):
+                self.worker.terminate()
+                self.worker.wait(2000)
+
+        # 4. Мягкая остановка проверки прокси
+        if self.proxy_test_worker and self.proxy_test_worker.isRunning():
+            self.proxy_test_worker.stop()
+            self.proxy_test_worker.wait(3000)
+
+        # 5. Убиваем зависшие дочерние процессы (patchright/node.exe/chrome)
+        _kill_child_processes()
+
+        # 6. Сохраняем настройки
         cron_settings = self.cron_tab.to_dict()
         cfg = self.config.setdefault('cron', {})
         for k, v in cron_settings.items():
             cfg[k] = v
         self.config['input_text'] = self.input_edit.toPlainText()
-        # Save all settings (parser, proxy, antidetect, captcha, notifications)
         self._build_runtime_config()
         save_config(self.base_dir / 'config_ozon.json', self.config)
         super().closeEvent(event)
