@@ -250,6 +250,22 @@ class TelegramNotifier:
             f'Нерабочих: <b>{invalid}</b>'
         )
 
+    def notify_proxy_status_after_cron(self, valid_count: int) -> None:
+        if valid_count > 10:
+            emoji = '🟢'
+            status = 'достаточно'
+        elif valid_count >= 5:
+            emoji = '🟡'
+            status = 'мало — пополните список'
+        else:
+            emoji = '🔴'
+            status = 'критично — срочно пополните!'
+        self.send(
+            f'{emoji} <b>{self.parser_name}</b> — Прокси после сбора\n'
+            f'Рабочих прокси: <b>{valid_count}</b>\n'
+            f'Статус: {status}'
+        )
+
     def notify_progress(self, processed: int, total: int, interval: int) -> None:
         self.send(
             f'📊 <b>{self.parser_name}</b> — Прогресс парсинга\n'

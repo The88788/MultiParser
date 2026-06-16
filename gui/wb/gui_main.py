@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
         self._last_stats_total = 0
         self._stop_requested_once = False
         self._parser_ran_since_proxy_check: bool = False
+        self._post_cron_proxy_check: bool = False
         self._worker_start_time: float = 0.0
         self._worker_watchdog = QTimer(self)
         self._worker_watchdog.setInterval(600_000)  # check every 10 min
@@ -530,6 +531,15 @@ class MainWindow(QMainWindow):
         elif level == 'WARNING':
             color = '#ef6c00'
             weight = '600'
+        elif level == 'PROXY_OK':
+            color = '#2e7d32'
+            weight = '700'
+        elif level == 'PROXY_LOW':
+            color = '#ef6c00'
+            weight = '700'
+        elif level == 'PROXY_CRIT':
+            color = '#c62828'
+            weight = '700'
         else:
             color = '#1f2933'
             weight = '400'
@@ -767,6 +777,17 @@ class MainWindow(QMainWindow):
         if notifier and ntf.get('notify_proxy_check_done', False) and (valid_count > 0 or invalid_count > 0):
             notifier.notify_proxy_check_done(valid_count, invalid_count)
 
+        if self._post_cron_proxy_check:
+            self._post_cron_proxy_check = False
+            if valid_count > 10:
+                self.append_log('PROXY_OK', f'[WB] Прокси после сбора: {valid_count} рабочих')
+            elif valid_count >= 5:
+                self.append_log('PROXY_LOW', f'[WB] Прокси после сбора: {valid_count} рабочих — пополните запас')
+            else:
+                self.append_log('PROXY_CRIT', f'[WB] Прокси после сбора: {valid_count} рабочих — критично!')
+            if notifier and ntf.get('notify_cron_done', True):
+                notifier.notify_proxy_status_after_cron(valid_count)
+
     def delete_bad_proxies(self) -> None:
         if not self.last_proxy_file_path:
             self.append_log('WARNING', 'Файл proxy не выбран или не использовался при последней проверке')
@@ -845,6 +866,7 @@ class MainWindow(QMainWindow):
             self.cron_manager.record_parse_result(payload)
             self._update_cron_history(self.cron_manager.get_history())
             self._update_cron_labels()
+            self._maybe_run_post_cron_proxy_check()
 
     def on_worker_error(self, message: str) -> None:
         self._worker_watchdog.stop()
@@ -936,6 +958,22 @@ class MainWindow(QMainWindow):
             proxies, ntf.get('thread_id', ''),
             parser_name='WB Parser',
         )
+
+    def _maybe_run_post_cron_proxy_check(self) -> None:
+        proxy_cfg = self.config.get('proxy', {})
+        multi_mode = self.config.get('parser', {}).get('multi_parsing_enabled', False)
+        if not (proxy_cfg.get('enabled') or multi_mode):
+            return
+        if proxy_cfg.get('mode') != 'file':
+            return
+        if not (proxy_cfg.get('proxy_file') or '').strip():
+            return
+        if self.proxy_test_worker and self.proxy_test_worker.isRunning():
+            self.append_log('CRON', 'Проверка прокси после сбора пропущена: проверка уже выполняется')
+            return
+        self.append_log('CRON', 'Запуск проверки прокси после завершения сбора...')
+        self._post_cron_proxy_check = True
+        self.check_proxy()
 
     # ------------------------------------------------------------------ #
     #  Cron                                                                #
