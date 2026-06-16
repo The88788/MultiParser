@@ -65,6 +65,20 @@ class TelegramNotifier:
         self, text: str, max_retries: int = 3, retry_delay: float = 3.0
     ) -> tuple[bool, str]:
         last_msg = ''
+        if self.proxies:
+            # Dedicated proxy configured — use it directly, skip no-proxy attempts
+            for proxy in self.proxies[:5]:
+                for attempt in range(max_retries):
+                    ok, msg, retry_after = self._post_sync(text, proxy)
+                    if ok:
+                        return True, 'OK'
+                    last_msg = msg
+                    if retry_after > 0:
+                        time.sleep(retry_after + 0.5)
+                    elif attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+            return False, last_msg
+        # No proxy — try direct connection
         for attempt in range(max_retries):
             ok, msg, retry_after = self._post_sync(text)
             if ok:
@@ -74,12 +88,6 @@ class TelegramNotifier:
                 time.sleep(retry_after + 0.5)
             elif attempt < max_retries - 1:
                 time.sleep(retry_delay)
-        # Прямое соединение не сработало — пробуем прокси по очереди
-        for proxy in self.proxies[:5]:
-            ok, msg, _ = self._post_sync(text, proxy)
-            if ok:
-                return True, 'OK'
-            last_msg = msg
         return False, last_msg
 
     def _ensure_worker(self) -> None:

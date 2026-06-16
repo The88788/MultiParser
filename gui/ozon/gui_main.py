@@ -930,7 +930,7 @@ class MainWindow(QMainWindow):
         if not ntf.get('enabled', False):
             return None
         tg_proxy = ntf.get('tg_proxy', '').strip()
-        proxies = [tg_proxy] if tg_proxy else list(self.last_valid_proxy_lines)
+        proxies = [tg_proxy] if tg_proxy else []
         from core.telegram_notifier import TelegramNotifier
         return TelegramNotifier(
             ntf.get('bot_token', ''), ntf.get('chat_id', ''),
@@ -1074,15 +1074,8 @@ class MainWindow(QMainWindow):
         self.notifications_tab.test_tg_btn.setEnabled(False)
         self.notifications_tab.test_tg_btn.setText('...')
 
-        proxies = list(self.last_valid_proxy_lines)
-        if not proxies:
-            proxy_file = self.proxy_settings.proxy_file_input.text().strip()
-            if proxy_file:
-                try:
-                    with open(proxy_file, encoding='utf-8') as _f:
-                        proxies = [line.strip() for line in _f if line.strip()]
-                except Exception:
-                    pass
+        tg_proxy = self.notifications_tab.tg_proxy_edit.text().strip()
+        proxies = [tg_proxy] if tg_proxy else []
 
         def _run() -> None:
             ok, msg = TelegramNotifier(token, chat_id, proxies, thread_id, parser_name='OZON Parser').test()
