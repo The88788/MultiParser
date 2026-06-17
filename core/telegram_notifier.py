@@ -266,6 +266,27 @@ class TelegramNotifier:
             f'Статус: {status}'
         )
 
+    def notify_startup(
+        self,
+        cron_active: bool,
+        next_run: 'datetime | None',
+        version: str = '',
+    ) -> None:
+        from datetime import datetime
+        now = datetime.now().strftime('%d.%m.%Y %H:%M')
+        title = f'{self.parser_name}' + (f' {version}' if version else '')
+        lines = [f'🟢 <b>{title}</b> — приложение запущено\n{now}']
+        if cron_active and next_run:
+            lines.append(
+                f'📅 Расписание: активно\n'
+                f'Следующий запуск: <b>{next_run.strftime("%d.%m.%Y %H:%M")}</b>'
+            )
+        elif cron_active:
+            lines.append('📅 Расписание: активно')
+        else:
+            lines.append('📅 Расписание: выключено')
+        self.send('\n'.join(lines))
+
     def notify_progress(self, processed: int, total: int, interval: int) -> None:
         self.send(
             f'📊 <b>{self.parser_name}</b> — Прогресс парсинга\n'

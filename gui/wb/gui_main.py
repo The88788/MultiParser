@@ -477,6 +477,13 @@ class MainWindow(QMainWindow):
             return
         self._did_center = True
         self._fit_window_to_available_screen()
+        notifier = self._get_notifier()
+        if notifier:
+            notifier.notify_startup(
+                cron_active=self.cron_manager.is_active(),
+                next_run=self.cron_manager.next_run_time() if self.cron_manager.is_active() else None,
+                version=APP_VERSION,
+            )
 
     def choose_proxy_file(self) -> None:
         proxies_dir = self.base_dir / 'proxies'
