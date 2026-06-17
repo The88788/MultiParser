@@ -1146,8 +1146,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         # 1. Деактивируем Cron чтобы не стрельнул во время закрытия
+        cron_was_active = False
         try:
-            if self.cron_manager.is_active():
+            cron_was_active = self.cron_manager.is_active()
+            if cron_was_active:
                 self.cron_manager.deactivate()
         except Exception:
             pass
@@ -1175,6 +1177,7 @@ class MainWindow(QMainWindow):
         cfg = self.config.setdefault('cron', {})
         for k, v in cron_settings.items():
             cfg[k] = v
+        cfg['enabled'] = cron_was_active
         self.config['input_text'] = self.input_edit.toPlainText()
         self._build_runtime_config()
         save_config(self.base_dir / 'config_ozon.json', self.config)
