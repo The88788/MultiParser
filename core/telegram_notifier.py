@@ -50,7 +50,7 @@ class TelegramNotifier:
         if self.thread_id is not None:
             payload['message_thread_id'] = self.thread_id
         try:
-            r = requests.post(url, json=payload, timeout=10, proxies=proxies)
+            r = requests.post(url, json=payload, timeout=(5, 15), proxies=proxies)
             data = r.json()
             if data.get('ok'):
                 return True, 'OK', 0.0
@@ -78,17 +78,16 @@ class TelegramNotifier:
                     elif attempt < max_retries - 1:
                         time.sleep(retry_delay)
             return False, last_msg
-        # No proxy — try direct connection
-        for attempt in range(max_retries):
-            ok, msg, retry_after = self._post_sync(text)
+        # No proxy — single attempt (connect timeouts won't improve on retry)
+        ok, msg, retry_after = self._post_sync(text)
+        if ok:
+            return True, 'OK'
+        if retry_after > 0:
+            time.sleep(retry_after + 0.5)
+            ok, msg, _ = self._post_sync(text)
             if ok:
                 return True, 'OK'
-            last_msg = msg
-            if retry_after > 0:
-                time.sleep(retry_after + 0.5)
-            elif attempt < max_retries - 1:
-                time.sleep(retry_delay)
-        return False, last_msg
+        return False, msg
 
     def _ensure_worker(self) -> None:
         with self._lock:
