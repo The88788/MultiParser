@@ -92,6 +92,7 @@ class CronManager:
         is_parser_running: Callable[[], bool],
         save_config_fn: Callable[[dict], None],
         history_filename: str = 'cron_history.json',
+        proxy_checker_class=None,
     ) -> None:
         self.base_dir = base_dir
         self.config = config
@@ -100,6 +101,7 @@ class CronManager:
         self.log = log
         self.is_parser_running = is_parser_running
         self.save_config_fn = save_config_fn
+        self._proxy_checker_class = proxy_checker_class
 
         self._timer: threading.Timer | None = None
         self._active = False
@@ -373,8 +375,11 @@ class CronManager:
 
         if (proxy_enabled or multi_mode) and check_proxies and proxy_file:
             self.log('CRON', 'Проверка прокси перед запуском...')
-            from core.proxy_checker import ProxyChecker
-            checker = ProxyChecker(
+            checker_cls = self._proxy_checker_class
+            if checker_cls is None:
+                from core.proxy_checker_ozon import OzonProxyChecker
+                checker_cls = OzonProxyChecker
+            checker = checker_cls(
                 base_dir=self.base_dir,
                 config=runtime_config,
                 log=self.log,

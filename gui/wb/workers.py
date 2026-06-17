@@ -7,7 +7,7 @@ from PySide6.QtCore import QThread
 
 from parsers.wb.parser_core import ParserCore
 from parsers.wb.excel_exporter import export_snapshot as _export_fn
-from core.proxy_checker import ProxyChecker
+from core.proxy_checker_wb import WbProxyChecker
 from core.utils import ensure_runtime_dirs
 from gui.log_handler import LogEmitter
 
@@ -129,12 +129,11 @@ class ProxyTestWorker(QThread):
         self.emitter.log_signal.emit(level, message)
 
     def run(self) -> None:
-        checker = ProxyChecker(
+        checker = WbProxyChecker(
             base_dir=self.base_dir,
             config=self.config,
             log=self._log,
             stop_requested=self._should_stop,
-            target='wb',
         )
         checker.run()
         self.valid_proxy_lines = checker.valid_proxy_lines

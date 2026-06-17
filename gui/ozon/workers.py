@@ -7,7 +7,7 @@ from PySide6.QtCore import QThread
 
 from parsers.ozon.parser_core import ParserCore
 from parsers.ozon.excel_exporter import export_snapshot as _export_fn
-from core.proxy_checker import ProxyChecker
+from core.proxy_checker_ozon import OzonProxyChecker
 from core.utils import ensure_runtime_dirs
 from gui.log_handler import LogEmitter
 
@@ -129,7 +129,7 @@ class ProxyTestWorker(QThread):
         self.emitter.log_signal.emit(level, message)
 
     def run(self) -> None:
-        checker = ProxyChecker(
+        checker = OzonProxyChecker(
             base_dir=self.base_dir,
             config=self.config,
             log=self._log,

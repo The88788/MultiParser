@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from core.cron_manager import CronManager, validate_cron_conditions
 from core.proxy_checker import cleanup_stale_profiles
+from core.proxy_checker_ozon import OzonProxyChecker
 from parsers.ozon.parser_core import ParserCore
 from parsers.ozon.utils import extract_ozon_product_id_from_url
 from core.utils import save_config, ensure_runtime_dirs
@@ -997,6 +998,7 @@ class MainWindow(QMainWindow):
             is_parser_running=lambda: bool(self.worker and self.worker.isRunning()),
             save_config_fn=lambda cfg: save_config(self.base_dir / 'config_ozon.json', cfg),
             history_filename='cron_history_ozon.json',
+            proxy_checker_class=OzonProxyChecker,
         )
         # Восстановить активное расписание если было включено при последнем сеансе
         if self.config.get('cron', {}).get('enabled', False):

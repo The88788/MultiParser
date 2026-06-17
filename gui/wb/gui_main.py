@@ -19,6 +19,7 @@ from core.cron_manager import CronManager, validate_cron_conditions
 from parsers.wb.parser_core import ParserCore
 from parsers.wb.utils import extract_wb_product_id_from_url
 from core.proxy_checker import cleanup_stale_profiles
+from core.proxy_checker_wb import WbProxyChecker
 from core.utils import save_config, ensure_runtime_dirs
 from core import autostart as _autostart
 from parsers.wb.version import APP_SITE_URL, APP_TELEGRAM_URL, APP_TITLE, APP_VERSION
@@ -996,6 +997,7 @@ class MainWindow(QMainWindow):
             is_parser_running=lambda: bool(self.worker and self.worker.isRunning()),
             save_config_fn=lambda cfg: save_config(self.base_dir / 'config_wb.json', cfg),
             history_filename='cron_history_wb.json',
+            proxy_checker_class=WbProxyChecker,
         )
         # Восстановить активное расписание если было включено при последнем сеансе
         if self.config.get('cron', {}).get('enabled', False):
