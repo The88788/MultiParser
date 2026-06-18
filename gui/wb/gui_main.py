@@ -679,6 +679,7 @@ class MainWindow(QMainWindow):
         stopped_something = False
         if self.worker and self.worker.isRunning():
             if self._stop_requested_once:
+                _kill_child_processes()
                 self.worker.terminate()
                 self.append_log('WARNING', 'Принудительная остановка. Данные могут быть частично сохранены.')
             else:
@@ -939,6 +940,7 @@ class MainWindow(QMainWindow):
                 f'принудительная остановка. Следующий Cron-запуск пройдёт без помех.'
             )
             self.worker.stop()
+            _kill_child_processes()
             self.worker.terminate()
             self._worker_watchdog.stop()
 
@@ -1160,6 +1162,7 @@ class MainWindow(QMainWindow):
         if self.worker and self.worker.isRunning():
             self.worker.stop()
             if not self.worker.wait(8000):
+                _kill_child_processes()
                 self.worker.terminate()
                 self.worker.wait(2000)
 

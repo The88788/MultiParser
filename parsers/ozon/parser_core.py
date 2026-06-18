@@ -1041,6 +1041,12 @@ class ParserCore:
                 except _TIMEOUT_EXC:
                     self.log('DEBUG', 'networkidle timeout — продолжаем')
 
+                # Ранний детект сетевого челленджа Ozon (fab_chlg) — не капча, сразу access_denied
+                if self._is_ozon_network_challenge(page):
+                    result.parse_status = 'access_denied'
+                    result.error = 'Ozon network challenge (fab_chlg) — прокси заблокирован сетью'
+                    return result
+
                 # Проверка на Ozon Antibot slider-капчу
                 if self._is_ozon_antibot_present(page):
                     self.log('WARNING', 'Обнаружена Ozon Antibot slider-капча')
@@ -1203,6 +1209,23 @@ class ParserCore:
         except Exception:
             return False
 
+    def _is_ozon_network_challenge(self, page: Page) -> bool:
+        """Определяет страницу сетевого челленджа Ozon (fab_chlg) — «Похоже, нет соединения».
+        Эта страница не является slider-капчой и должна трактоваться как access_denied."""
+        try:
+            content = page.content()
+            if 'fab_chlg' in content:
+                return True
+        except Exception:
+            pass
+        try:
+            text = page.locator('body').inner_text(timeout=2000)
+            if 'Похоже, нет соединения' in text or 'Выключите VPN' in text:
+                return True
+        except Exception:
+            pass
+        return False
+
     def _is_ozon_antibot_present(self, page: Page) -> bool:
         """Определяет Ozon Antibot slider-капчу по заголовку, тексту или структуре страницы."""
         try:
@@ -1222,9 +1245,10 @@ class ParserCore:
                         return True
                 except Exception:
                     pass
-                # Проверяем HTML-источник на CSS-классы fab_cp (inner_text не содержит атрибутов)
+                # Проверяем HTML-источник на CSS-классы fab_cp, исключая сетевой fab_chlg
                 try:
-                    if 'fab_cp' in page.content():
+                    content = page.content()
+                    if 'fab_cp' in content and 'fab_chlg' not in content:
                         return True
                 except Exception:
                     pass

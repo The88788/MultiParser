@@ -14,7 +14,10 @@ def detect_access_denied(text: str) -> tuple[bool, str]:
     normalized = normalize_space(text)
     if not normalized:
         return False, ''
-    patterns = ['Доступ ограничен', 'Инцидент:', 'попробуйте сделать это', 'Отключить VPN']
+    patterns = [
+        'Доступ ограничен', 'Инцидент:', 'попробуйте сделать это', 'Отключить VPN',
+        'Похоже, нет соединения', 'Выключите VPN',
+    ]
     if any(pattern.lower() in normalized.lower() for pattern in patterns):
         return True, extract_incident_id(text)
     return False, ''
