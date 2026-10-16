@@ -31,7 +31,14 @@ def sanitize_rows_for_excel(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def load_config(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding='utf-8'))
+    config = json.loads(path.read_text(encoding='utf-8'))
+    # The regular JSON config remains editable in the GUI. Optional .env values
+    # override only sensitive fields for the selected parser at startup.
+    parser = {'config_wb.json': 'WB', 'config_ozon.json': 'OZON'}.get(path.name)
+    if parser:
+        from core.env_config import apply_env_overrides
+        apply_env_overrides(config, parser, path.parent / '.env')
+    return config
 
 
 def save_config(path: Path, data: dict[str, Any]) -> None:

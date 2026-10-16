@@ -1,38 +1,49 @@
-# Virtual environment
+# Python and virtual environments
 .venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# PyInstaller artifacts
+# PyInstaller
 build/
 dist/
+*.exe
 
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-
-# IDE
+# IDE and OS
 .idea/
 .vscode/
+.DS_Store
+Thumbs.db
 
-# Runtime output
-logs/
-output/
-
-# Sensitive
-cookies_wb.json
-
-# Local configs (не перезаписываются при git pull)
+# Local secrets and configuration
+.env
+.env.*
+!.env.example
 config.json
 config_ozon.json
 config_wb.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.secrets.json
+cookies.json
+cookies_*.json
+**/cookies.json
+**/storage_state.json
 
-# Файлы прокси (локальные данные)
-proxies/*.txt
-
-# Данные с сервера (локальные, не коммитятся)
+# Runtime data (may contain session tokens or private information)
+profiles/
+proxies/
+logs/
+output/
 server_logs/
 server_output/
+*.log
 
-# Документация только для локального использования
+# Local/server-only docs and scripts
 SERVER_GUIDE.md
 fetch_logs.ps1
