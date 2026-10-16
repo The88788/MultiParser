@@ -28,8 +28,44 @@ The listed capabilities are implemented in source code. Compatibility with *curr
 
 ## Screenshots / Интерфейс
 
-Оригинальные скриншоты Windows-приложений WB Parser и Ozon Parser будут добавлены непосредственно в репозиторий в `docs/screenshots/` после удаления персональных данных, API-ключей и реквизитов прокси.
+Оба парсера используют единый интерфейс Windows (PySide6). Ниже приведены оригинальные скриншоты приложения. Конфиденциальные данные на изображениях скрыты.
 
+### Wildberries Parser: массовый сбор данных
+
+![Главное окно Wildberries Parser, ввод списка ID и SKU](docs/screenshots/wb-ids.jpg)
+
+### Ozon Parser: настройки и браузерные стратегии
+
+![Ozon Parser: многопоточность и стратегии браузера](docs/screenshots/ozon-browser-strategies.jpg)
+
+<details>
+<summary><strong>Дополнительные скриншоты: парсинг, прокси, автоматизация, статистика и логи</strong></summary>
+
+**Настройки парсинга и многопоточность**
+
+![Настройки WB Parser](docs/screenshots/wb-parser-settings.jpg)
+
+**Прокси и антикапча**
+
+![Управление прокси и сервисами антикапчи](docs/screenshots/wb-proxies-captcha.jpg)
+
+**Запуск по расписанию (Cron)**
+
+![Автоматическое расписание запуска](docs/screenshots/wb-scheduler.jpg)
+
+**Telegram-уведомления**
+
+![Настройки уведомлений Telegram](docs/screenshots/wb-notifications.jpg)
+
+**Статистика сбора**
+
+![Вкладка статистики](docs/screenshots/wb-statistics.jpg)
+
+**Журнал приложения**
+
+![Логи приложения](docs/screenshots/wb-logs.jpg)
+
+</details>
 ## Quick start (Windows)
 
 See **[INSTALL.md](INSTALL.md)** for full instructions and troubleshooting.
