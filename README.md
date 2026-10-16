@@ -1,34 +1,71 @@
-# MultiParser: Windows data parser toolkit
+# MultiParser: Open Source Windows Parsing Platform
 
-**MultiParser** is an open-source Python desktop project with a Windows GUI for collecting product data from **Wildberries** and **Ozon**. It is also a starting point for building other custom web/data parsers.
+**MultiParser** is a functional open-source Windows desktop data-collection application written in Python, with dedicated graphical interfaces for **Wildberries** and **Ozon**. Its modular architecture also provides a starting point for building custom parsers for other data sources.
 
-> **Project status: functional foundation, unfinished release.** The original commissioned development stopped before final packaging and polishing. The code and GUI exist, but there are unfinished parts, no verified release builds, and scraping may need adaptation to current websites. This is **not** a ready-to-install, production-guaranteed application.
+> **Status: working application, community-maintained development welcome.** The original commissioned project was stopped before final polishing and Windows packaging. The desktop UI and core parsing workflows were developed as working software, not merely UI mockups. Because marketplace websites change, selectors and browser/challenge handling may need updating before a new deployment. There is **no tested Windows EXE release** yet.
 
-**Русский:** проект можно бесплатно использовать и развивать на условиях MIT. Приложение создавалось для практических задач, но работа над заказом была прекращена до финальной сборки. Интерфейс Windows и основная архитектура готовы. Функциональность отдельных модулей требует тестирования и актуализации. Pull requests приветствуются!
+**Русский:** MultiParser представляет собой **рабочий проект парсера данных под Windows**, а не просто прототип интерфейса. В нём реализованы GUI, сбор данных Wildberries и Ozon, обработка списков ID, прокси, антикапча, автоматизация и экспорт в Excel. Разработка для заказчика прекратилась до окончательной доработки и сборки EXE. Для возобновления эксплуатации может потребоваться обновить селекторы сайтов и проверить актуальные механизмы защиты. Проект доступен бесплатно по лицензии MIT; предложения, Issues и Pull Requests приветствуются!
 
 ## Features / Возможности
 
 - Two Windows GUI entry points: WB and Ozon (PySide6 / Qt).
 - Browser-driven collection (Playwright and additional browser strategies).
 - Product data parsing and Excel export.
-- Multiple parsing jobs, queue, concurrency settings.
+- Product-ID lists, job queues, multi-job runs and concurrency settings.
 - Proxy management and proxy health checks.
 - Optional CAPTCHA service integrations: 2Captcha, CapSolver, Anti-Captcha.
 - Scheduling / recurring jobs, logs and progress.
 - Optional Telegram notifications.
 - Modular core, parsers and GUI folders: adaptable for other data sources.
 
-These are **implemented components**, not a promise that every mode works on today's third-party websites.
+### Bulk collection / Массовый сбор
+
+The architecture is designed for **bulk collection of thousands of product IDs** with a managed pool of proxies and configurable concurrency. A pool of approximately **30–50 proxies** was identified by the developer as a practical deployment scenario, not a minimum requirement or a verified performance benchmark. Actual throughput and reliability depend on proxy quality, active site protections, selectors, machine resources and configuration.
+
+**Масштабирование:** система рассчитана на массовый сбор данных по спискам в несколько тысяч ID. Для практической эксплуатации можно использовать пул ориентировочно из **30–50 прокси**, но это сценарий настройки, а не гарантия скорости или отсутствия блокировок.
+
+The listed capabilities are implemented in source code. Compatibility with *current* site versions and all combinations of settings has not been revalidated for this open-source release.
 
 ## Screenshots / Интерфейс
 
-Real project screenshots from the developer's portfolio:
+Оба парсера используют единый интерфейс Windows (PySide6). Ниже приведены оригинальные скриншоты приложения. Конфиденциальные данные на изображениях скрыты.
 
-- [Wildberries Parser: GUI, settings and scheduler](https://www.fl.ru/user/grayzor/portfolio/8055749/)
-- [Ozon Parser: GUI and parsing options](https://www.fl.ru/user/grayzor/portfolio/8055761/)
+### Wildberries Parser: массовый сбор данных
 
-Screenshots are linked to their source instead of embedding unverified copied media.
+![Главное окно Wildberries Parser, ввод списка ID и SKU](docs/screenshots/wb-ids.jpg)
 
+### Ozon Parser: настройки и браузерные стратегии
+
+![Ozon Parser: многопоточность и стратегии браузера](docs/screenshots/ozon-browser-strategies.jpg)
+
+<details>
+<summary><strong>Дополнительные скриншоты: парсинг, прокси, автоматизация, статистика и логи</strong></summary>
+
+**Настройки парсинга и многопоточность**
+
+![Настройки WB Parser](docs/screenshots/wb-parser-settings.jpg)
+
+**Прокси и антикапча**
+
+![Управление прокси и сервисами антикапчи](docs/screenshots/wb-proxies-captcha.jpg)
+
+**Запуск по расписанию (Cron)**
+
+![Автоматическое расписание запуска](docs/screenshots/wb-scheduler.jpg)
+
+**Telegram-уведомления**
+
+![Настройки уведомлений Telegram](docs/screenshots/wb-notifications.jpg)
+
+**Статистика сбора**
+
+![Вкладка статистики](docs/screenshots/wb-statistics.jpg)
+
+**Журнал приложения**
+
+![Логи приложения](docs/screenshots/wb-logs.jpg)
+
+</details>
 ## Quick start (Windows)
 
 See **[INSTALL.md](INSTALL.md)** for full instructions and troubleshooting.
@@ -65,7 +102,9 @@ config_*.default.json Safe defaults (without personal keys)
 
 ## Development status and roadmap
 
-Potential contributions: Windows smoke tests, dependency/version compatibility, reliable EXE packaging, parsing selectors and CAPTCHA workflow updates, better error handling and diagnostics, automated tests, refactoring shared code, documentation and examples for extending to other sites.
+The main open tasks are refreshing selectors and browser/challenge logic as marketplace pages evolve, checking dependency compatibility, completing a reliable Windows EXE build, improving diagnostics and tests, and documenting how to adapt the architecture for additional sources.
+
+**The application is usable from Python source, subject to dependency and website compatibility.** The absence of a published EXE does not mean the desktop interface or underlying parser was only a mockup.
 
 No EXE release has been validated or published. `*.spec` files are **experimental build configurations**, not proof that packaging works. Use at your own risk and follow the terms and rate limits of target services.
 
