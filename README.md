@@ -28,12 +28,7 @@ The listed capabilities are implemented in source code. Compatibility with *curr
 
 ## Screenshots / Интерфейс
 
-Real project screenshots from the developer's portfolio:
-
-- [Wildberries Parser: GUI, settings and scheduler](https://www.fl.ru/user/grayzor/portfolio/8055749/)
-- [Ozon Parser: GUI and parsing options](https://www.fl.ru/user/grayzor/portfolio/8055761/)
-
-Screenshots are linked to the author's portfolio. Selected original, redacted application screenshots will be embedded here when available; credentials, session cookies and private proxy details must not be visible.
+Оригинальные скриншоты Windows-приложений WB Parser и Ozon Parser будут добавлены непосредственно в репозиторий в `docs/screenshots/` после удаления персональных данных, API-ключей и реквизитов прокси.
 
 ## Quick start (Windows)
 
