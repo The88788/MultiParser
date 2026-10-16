@@ -75,7 +75,7 @@ No EXE release has been validated or published. `*.spec` files are **experimenta
 - **Open source**: bug reports, fixes and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Custom development**: need a new parser, features, an integration or a finished Windows build based on this codebase? Paid custom development is available.
 
-**Developer:** [The 88788](https://the88788.com/) · [GitHub @The88788](https://github.com/The88788)
+**Developer:** [The 88788](https://www.the88788.com/) · [GitHub @The88788](https://github.com/The88788)
 
 ## Security and license
 
